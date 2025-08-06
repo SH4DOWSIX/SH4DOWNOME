@@ -1,0 +1,16 @@
+QWidget {
+    background-color: #232629;
+    color: #e0e0e0;
+}
+QPushButton, QComboBox, QSpinBox, QSlider, QLineEdit {
+    background: #31363b;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 4px;
+}
+QLabel {
+    color: #e0e0e0;
+}
+QSlider::groove:horizontal { background: #40444a; }
+QSlider::handle:horizontal { background: #8f93a2; }
+QSpinBox, QComboBox, QLineEdit { selection-background-color: #568af2; }
