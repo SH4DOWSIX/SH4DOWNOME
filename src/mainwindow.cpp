@@ -59,6 +59,10 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
+    setWindowTitle("SH4DOWNOME");
+    setMinimumWidth(487);
+    setMaximumWidth(487);
+
     QVBoxLayout* mainLayout = qobject_cast<QVBoxLayout*>(ui->centralwidget->layout());
 
     const int minRows = 8;
@@ -71,8 +75,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableSections->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->tableSections->verticalHeader()->setDefaultAlignment(Qt::AlignCenter);
 
-    setWindowTitle("SH4DOWNOME");
-    setMaximumWidth(487);
+    
 
     QSettings settings("YourCompany", "MetronomeApp");
     QString savedColor = settings.value("accentColor", "#960000").toString();
@@ -177,6 +180,9 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableSections->setSelectionMode(QAbstractItemView::SingleSelection);
     ui->tableSections->setDefaultDropAction(Qt::MoveAction);
 
+    
+
+    
     connect(ui->tableSections, SIGNAL(rowMoved(int,int)), this, SLOT(onSectionRowMoved(int,int)));
     connect(ui->btnSettings, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
     connect(ui->tableSections, &QTableWidget::currentCellChanged,
@@ -259,17 +265,7 @@ MainWindow::MainWindow(QWidget *parent)
         onAddSection();
     }
 
-    QTimer::singleShot(0, this, [this](){
-        if (ui->obsBeatWidget && ui->contentContainer) {
-            int obsHeight = ui->obsBeatWidget->isVisible() ? ui->obsBeatWidget->sizeHint().height() : 0;
-            m_contentAreaHeight = height() - obsHeight;
-        }
-    });
-    QTimer::singleShot(0, this, [this]() {
-        int minH = this->minimumSizeHint().height();
-        this->setMinimumHeight(minH);
-        this->resize(this->width(), minH);
-    });
+
 }
 
 MainWindow::~MainWindow() {
@@ -584,7 +580,7 @@ void MainWindow::setupAccentControls(int count) {
     grid->setSpacing(4);
     ui->accentWidget->setLayout(grid);
 
-    const int maxPerRow = 12;
+    const int maxPerRow = 10;
     for (int i = 0; i < count; ++i) {
         QCheckBox* cb = new QCheckBox(QString::number(i+1), ui->accentWidget);
         accentChecks.append(cb);
