@@ -4,6 +4,7 @@
 #include <QString>
 #include <QMap>
 #include <vector>
+#include "metronomeengine.h"
 
 struct MetronomeSection {
     int tempo;
@@ -12,6 +13,8 @@ struct MetronomeSection {
     int subdivision;
     std::vector<bool> accents;
     QString label;
+    bool hasPolyrhythm = false;
+    Polyrhythm polyrhythm;
 };
 
 struct MetronomePreset {

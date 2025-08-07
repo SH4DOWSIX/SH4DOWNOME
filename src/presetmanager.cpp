@@ -58,6 +58,12 @@ void PresetManager::loadFromDisk(const QString& filename) {
                 s.accents[i] = arr[i].toBool();
             if (arr.isEmpty() && numBeats > 0)
                 s.accents[0] = true;
+            s.hasPolyrhythm = secObj.value("hasPolyrhythm").toBool(false);
+            if (s.hasPolyrhythm) {
+                QJsonObject polyObj = secObj.value("polyrhythm").toObject();
+                s.polyrhythm.primaryBeats = polyObj.value("primaryBeats").toInt(3);
+                s.polyrhythm.secondaryBeats = polyObj.value("secondaryBeats").toInt(2);
+            }
             p.sections.push_back(s);
         }
         presets[p.songName] = p;
@@ -80,6 +86,13 @@ void PresetManager::saveToDisk(const QString& filename) const {
             QJsonArray arr;
             for (bool a : s.accents) arr.append(a);
             secObj["accents"] = arr;
+            secObj["hasPolyrhythm"] = s.hasPolyrhythm;
+            if (s.hasPolyrhythm) {
+                QJsonObject polyObj;
+                polyObj["primaryBeats"] = s.polyrhythm.primaryBeats;
+                polyObj["secondaryBeats"] = s.polyrhythm.secondaryBeats;
+                secObj["polyrhythm"] = polyObj;
+            }
             sectionsArr.append(secObj);
         }
         obj["sections"] = sectionsArr;

@@ -31,6 +31,7 @@ add_executable(SH4DOWNOME
     sectiontablewidget.cpp sectiontablewidget.h
     settingsdialog.h settingsdialog.cpp
     svgutils.cpp svgutils.h
+    polyrhythmdialog.cpp polyrhythmdialog.h
     resources/resources.qrc
     $<$<BOOL:${WIN32}>:${APP_ICON_RESOURCE}>
 )

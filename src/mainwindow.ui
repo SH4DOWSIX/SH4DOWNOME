@@ -141,6 +141,20 @@
              </property>
             </widget>
            </item>
+           <!-- ADD POLYRHYTHM BUTTON HERE -->
+           <item>
+            <widget class="QPushButton" name="btnPolyrhythm">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
+             </property>
+             <property name="text">
+              <string>Polyrhythms</string>
+             </property>
+             <property name="toolTip">
+              <string>Configure polyrhythm for this section</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QPushButton" name="btnTapTempo">
              <property name="sizePolicy">

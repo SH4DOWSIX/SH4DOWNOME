@@ -18,6 +18,21 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include "svgutils.h"
+#include "polyrhythmdialog.h"
+#include <vector>
+#include <algorithm>
+
+// --- Add this method for polyrhythm button color ---
+void MainWindow::updatePolyrhythmButtonColor() {
+    if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
+        bool enabled = currentPreset.sections[currentSectionIdx].hasPolyrhythm;
+        if (enabled) {
+            ui->btnPolyrhythm->setStyleSheet("background-color: #009f00; color: white;");
+        } else {
+            ui->btnPolyrhythm->setStyleSheet(""); // Default style
+        }
+    }
+}
 
 QString MainWindow::subdivisionImagePathFromIndex(int index) const {
     static QString imgs[] = {
@@ -54,6 +69,18 @@ QString MainWindow::soundFileForSet(const QString& set, bool accent) const {
     return accent ? "qrc:/resources/accent.wav" : "qrc:/resources/click.wav";
 }
 
+// LCM helper for polyrhythm grid
+static int lcm(int a, int b) {
+    if (a == 0 || b == 0) return 0;
+    int x = a, y = b;
+    while (y != 0) {
+        int t = y;
+        y = x % y;
+        x = t;
+    }
+    return (a / x) * b;
+}
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow), m_obsInLayout(true)
 {
@@ -74,8 +101,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableSections->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->tableSections->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->tableSections->verticalHeader()->setDefaultAlignment(Qt::AlignCenter);
-
-    
 
     QSettings settings("YourCompany", "MetronomeApp");
     QString savedColor = settings.value("accentColor", "#960000").toString();
@@ -129,6 +154,9 @@ MainWindow::MainWindow(QWidget *parent)
             setTimeSignature(dlg.selectedNumerator(), dlg.selectedDenominator());
     });
 
+    // --- Only connect the UI's polyrhythm button, don't dynamically create/insert it! ---
+    connect(ui->btnPolyrhythm, &QPushButton::clicked, this, &MainWindow::onPolyrhythmClicked);
+
     ui->labelSubdivisionImage->installEventFilter(this);
 
     timer = new QTimer(this);
@@ -180,9 +208,6 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableSections->setSelectionMode(QAbstractItemView::SingleSelection);
     ui->tableSections->setDefaultDropAction(Qt::MoveAction);
 
-    
-
-    
     connect(ui->tableSections, SIGNAL(rowMoved(int,int)), this, SLOT(onSectionRowMoved(int,int)));
     connect(ui->btnSettings, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
     connect(ui->tableSections, &QTableWidget::currentCellChanged,
@@ -264,8 +289,6 @@ MainWindow::MainWindow(QWidget *parent)
         currentPreset.sections.clear();
         onAddSection();
     }
-
-
 }
 
 MainWindow::~MainWindow() {
@@ -320,6 +343,7 @@ void MainWindow::setTimeSignature(int numerator, int denominator) {
     m_beatIndicatorWidget->setBeats(beatsPerBar);
     m_beatIndicatorWidget->setSubdivisions(subdivisions);
     m_beatIndicatorWidget->setCurrent(0, 0);
+    m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
 }
 
 void MainWindow::updateTimeSignatureDisplay() {
@@ -445,6 +469,8 @@ void MainWindow::onSubdivisionChanged(int index) {
     setSubdivisionImage(index);
     if (ui->obsBeatWidget)
         ui->obsBeatWidget->setSubdivisionImagePath(subdivisionImagePathFromIndex(index));
+
+    m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
 }
 
 void MainWindow::onSubdivisionImageClicked() {
@@ -591,28 +617,84 @@ void MainWindow::setupAccentControls(int count) {
     }
 }
 
-void MainWindow::onMetronomePulse(int pulseIdx, bool accent, bool isBeat) {
+// --- Polyrhythm grid highlight order logic ---
+void MainWindow::setupPolyrhythmGridHighlightOrder(int mainBeats, int polyBeats) {
+    int columns = lcm(mainBeats, polyBeats);
+    std::vector<std::pair<int, int>> rawEvents; // (column, type)
+    for (int i = 0; i < mainBeats; ++i)
+        rawEvents.push_back({(i * columns) / mainBeats, 0});
+    for (int i = 0; i < polyBeats; ++i)
+        rawEvents.push_back({(i * columns) / polyBeats, 1});
+    std::sort(rawEvents.begin(), rawEvents.end());
+    int lastCol = -1;
+    m_polyrhythmGridColumns.clear();
+    for (const auto& ev : rawEvents) {
+        if (ev.first != lastCol) {
+            m_polyrhythmGridColumns.push_back(ev.first);
+            lastCol = ev.first;
+        }
+    }
+}
+
+void MainWindow::onMetronomePulse(int pulseIdx, bool accent, bool polyAccent, bool isBeat) {
+    if (metronome.isPolyrhythmEnabled()) {
+        Polyrhythm poly = metronome.getPolyrhythm();
+        int mainBeats = poly.primaryBeats;
+        int polyBeats = poly.secondaryBeats;
+        int columns = lcm(mainBeats, polyBeats);
+
+        // Only recalc on bar start or if changed
+        if (m_polyrhythmGridColumns.empty() ||
+            m_polyrhythmGridMain != mainBeats ||
+            m_polyrhythmGridPoly != polyBeats)
+        {
+            m_polyrhythmGridMain = mainBeats;
+            m_polyrhythmGridPoly = polyBeats;
+            setupPolyrhythmGridHighlightOrder(mainBeats, polyBeats);
+        }
+        int highlightCol = (pulseIdx < int(m_polyrhythmGridColumns.size())) ? m_polyrhythmGridColumns[pulseIdx] : -1;
+        m_beatIndicatorWidget->setPolyrhythmGrid(mainBeats, polyBeats, highlightCol);
+        m_beatIndicatorWidget->setMode(BeatIndicatorMode::PolyrhythmGrid);
+
+        // Polyrhythm sound logic (unchanged)
+        if (polyAccent) {
+            accentSound.play();
+        } else if (accent) {
+            clickSound.play();
+        } else {
+            clickSound.play();
+        }
+    } else {
+        int beatsPerBar = currentNumerator;
+        int subdivisions = subdivisionCountFromIndex(getCurrentSubdivisionIndex());
+        int currBeat = pulseIdx / subdivisions;
+        int currSub = pulseIdx % subdivisions;
+        m_beatIndicatorWidget->setBeats(beatsPerBar);
+        m_beatIndicatorWidget->setSubdivisions(subdivisions);
+        m_beatIndicatorWidget->setCurrent(currBeat, currSub);
+        m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
+
+        // Only play accent if this is the first subdivision of the beat and user accented it
+        bool userAccent = false;
+        if (currSub == 0 && currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
+            const auto& accents = currentPreset.sections[currentSectionIdx].accents;
+            if (currBeat >= 0 && currBeat < (int)accents.size())
+                userAccent = accents[currBeat];
+        }
+
+        if (userAccent)
+            accentSound.play();
+        else
+            clickSound.play();
+    }
+
     if (ui->obsBeatWidget) {
         ui->obsBeatWidget->setPulseOn(true);
         QTimer::singleShot(80, [this]() {
             if (ui->obsBeatWidget) ui->obsBeatWidget->setPulseOn(false);
         });
     }
-
-    int beatsPerBar = currentNumerator;
-    int subdivisions = subdivisionCountFromIndex(getCurrentSubdivisionIndex());
-    int currBeat = pulseIdx / subdivisions;
-    int currSub = pulseIdx % subdivisions;
-    m_beatIndicatorWidget->setBeats(beatsPerBar);
-    m_beatIndicatorWidget->setSubdivisions(subdivisions);
-    m_beatIndicatorWidget->setCurrent(currBeat, currSub);
-
-    if (accent)
-        accentSound.play();
-    else
-        clickSound.play();
 }
-
 void MainWindow::refreshPresetList() {
     ui->comboPresets->clear();
     QStringList names = presetManager.listPresetNames();
@@ -648,6 +730,9 @@ void MainWindow::onSavePreset() {
     s.subdivision = 0;
     s.accents = std::vector<bool>(4, false);
     s.accents[0] = true;
+    s.hasPolyrhythm = false;
+    s.polyrhythm.primaryBeats = 3;
+    s.polyrhythm.secondaryBeats = 2;
     currentPreset.sections.push_back(s);
 
     QSignalBlocker blocker(ui->tableSections);
@@ -742,6 +827,9 @@ void MainWindow::onAddSection() {
     s.accents.resize(accentChecks.size());
     for (int i = 0; i < accentChecks.size(); ++i)
         s.accents[i] = accentChecks[i]->isChecked();
+    s.hasPolyrhythm = false;
+    s.polyrhythm.primaryBeats = 3;
+    s.polyrhythm.secondaryBeats = 2;
     currentPreset.sections.push_back(s);
     int idx = currentPreset.sections.size() - 1;
 
@@ -941,19 +1029,33 @@ void MainWindow::loadSectionToUI(int idx) {
     metronome.setSubdivision(noteValue);
     metronome.setAccentPattern(s.accents);
 
+    metronome.setPolyrhythmEnabled(s.hasPolyrhythm);
+    if (s.hasPolyrhythm) {
+        metronome.setPolyrhythm(s.polyrhythm.primaryBeats, s.polyrhythm.secondaryBeats);
+    }
+
     int beatsPerBar = s.numerator;
     int subdivisions = subdivisionCountFromIndex(s.subdivision);
     m_beatIndicatorWidget->setBeats(beatsPerBar);
     m_beatIndicatorWidget->setSubdivisions(subdivisions);
     m_beatIndicatorWidget->setCurrent(0, 0);
+    m_beatIndicatorWidget->setMode(s.hasPolyrhythm ? BeatIndicatorMode::PolyrhythmGrid : BeatIndicatorMode::Circles);
 
     setSubdivisionImage(s.subdivision);
+
+    // Reset polyrhythm highlight mapping
+    m_polyrhythmGridColumns.clear();
+    m_polyrhythmGridMain = 0;
+    m_polyrhythmGridPoly = 0;
 
     if (ui->obsBeatWidget) {
         ui->obsBeatWidget->setTempo(s.tempo);
         ui->obsBeatWidget->setSubdivisionImagePath(subdivisionImagePathFromIndex(s.subdivision));
         ui->obsBeatWidget->setPlaying(metronome.isRunning());
     }
+
+    // --- Update polyrhythm button color! ---
+    updatePolyrhythmButtonColor();
 }
 
 void MainWindow::saveUIToSection(int idx, bool doAutosave) {
@@ -1078,4 +1180,33 @@ void MainWindow::onSettingsClicked()
         accentSound.setSource(QUrl(soundFileForSet(m_soundSet, true)));
         clickSound.setSource(QUrl(soundFileForSet(m_soundSet, false)));
     }
+}
+
+void MainWindow::onPolyrhythmClicked() {
+    if (currentSectionIdx < 0 || currentSectionIdx >= (int)currentPreset.sections.size()) return;
+    MetronomeSection& s = currentPreset.sections[currentSectionIdx];
+
+    PolyrhythmDialog dlg(this);
+    dlg.setPolyrhythmEnabled(s.hasPolyrhythm);
+    dlg.setPolyrhythm(s.polyrhythm.primaryBeats, s.polyrhythm.secondaryBeats);
+    if (dlg.exec() == QDialog::Accepted) {
+        s.hasPolyrhythm = dlg.polyrhythmEnabled();
+        s.polyrhythm.primaryBeats = dlg.primaryBeats();
+        s.polyrhythm.secondaryBeats = dlg.secondaryBeats();
+        metronome.setPolyrhythmEnabled(s.hasPolyrhythm);
+        metronome.setPolyrhythm(s.polyrhythm.primaryBeats, s.polyrhythm.secondaryBeats);
+        saveUIToSection(currentSectionIdx, true);
+
+        // Immediately update the beat indicator
+        m_beatIndicatorWidget->setMode(s.hasPolyrhythm ? BeatIndicatorMode::PolyrhythmGrid : BeatIndicatorMode::Circles);
+        if (s.hasPolyrhythm) {
+            m_beatIndicatorWidget->setPolyrhythmGrid(s.polyrhythm.primaryBeats, s.polyrhythm.secondaryBeats, 0);
+        }
+        // Reset highlight order for new polyrhythm config
+        m_polyrhythmGridColumns.clear();
+        m_polyrhythmGridMain = 0;
+        m_polyrhythmGridPoly = 0;
+    }
+    // --- Update polyrhythm button color after dialog ---
+    updatePolyrhythmButtonColor();
 }

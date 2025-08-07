@@ -32,7 +32,7 @@ private slots:
     void onTempoChanged(int value);
     void onSubdivisionChanged(int index);
     void onAccentChanged();
-    void onMetronomePulse(int pulseIdx, bool accent, bool isBeat);
+    void onMetronomePulse(int pulseIdx, bool accent, bool polyAccent, bool isBeat);
 
     void onSavePreset();
     void onLoadPreset();
@@ -61,6 +61,8 @@ private slots:
 
     void onSettingsClicked();
 
+    void onPolyrhythmClicked();
+
 private:
     Ui::MainWindow *ui;
     MetronomeEngine metronome;
@@ -87,6 +89,8 @@ private:
     NoteValue noteValueFromIndex(int index) const;
     QString subdivisionTextFromIndex(int index) const;
 
+    void updatePolyrhythmButtonColor();
+
     QString m_soundSet = "Default";
     QColor m_accentColor = QColor(150,0,0);
     bool m_obsHidden = false;
@@ -101,4 +105,11 @@ private:
     QElapsedTimer tapTimer;
 
     int m_contentAreaHeight = -1;
+
+    std::vector<int> m_polyrhythmGridColumns;
+    int m_polyrhythmGridMain = 0, m_polyrhythmGridPoly = 0;
+    void setupPolyrhythmGridHighlightOrder(int mainBeats, int polyBeats);
+
+    // Polyrhythm UI state
+    bool m_polyDialogOpen = false;
 };

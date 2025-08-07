@@ -1,6 +1,7 @@
 #include "beatindicatorwidget.h"
 #include <QPainter>
 #include <QtMath>
+#include <algorithm>
 
 BeatIndicatorWidget::BeatIndicatorWidget(QWidget *parent)
     : QWidget(parent) {
@@ -29,10 +30,104 @@ void BeatIndicatorWidget::setCurrent(int currentBeat, int currentSub) {
     update();
 }
 
+void BeatIndicatorWidget::setPolyrhythmGrid(int mainBeats, int polyBeats, int highlightStep) {
+    m_polyMain = mainBeats;
+    m_polySub = polyBeats;
+    m_gridHighlight = highlightStep;
+    m_mode = BeatIndicatorMode::PolyrhythmGrid;
+    update();
+}
+
+void BeatIndicatorWidget::setMode(BeatIndicatorMode mode) {
+    m_mode = mode;
+    update();
+}
+
+int BeatIndicatorWidget::lcm(int a, int b) const {
+    if (a == 0 || b == 0) return 0;
+    int x = a, y = b;
+    while (y != 0) {
+        int t = y;
+        y = x % y;
+        x = t;
+    }
+    return (a / x) * b;
+}
+
 void BeatIndicatorWidget::paintEvent(QPaintEvent *event) {
     Q_UNUSED(event);
     QPainter p(this);
-    p.setRenderHint(QPainter::Antialiasing);
+
+    if (m_mode == BeatIndicatorMode::PolyrhythmGrid && m_polyMain > 0 && m_polySub > 0) {
+        // --- GRID MODE ---
+        p.setRenderHint(QPainter::Antialiasing, false); // CRISP SQUARES
+
+        int columns = lcm(m_polyMain, m_polySub);
+        if (columns == 0) columns = std::max(m_polyMain, m_polySub);
+
+        const int maxCellSize = 32;
+        int rows = 2;
+
+        int availW = width();
+        int availH = height();
+        int cellSize = std::min({maxCellSize, availW / std::max(columns, 1), availH / rows});
+
+        int gridW = cellSize * columns;
+        int gridH = cellSize * rows;
+        int x0 = (width() - gridW) / 2;
+        int y0 = (height() - gridH) / 2;
+
+        std::vector<bool> mainHits(columns, false);
+        std::vector<bool> polyHits(columns, false);
+        for (int i = 0; i < m_polyMain; ++i)
+            mainHits[(i * columns) / m_polyMain] = true;
+        for (int i = 0; i < m_polySub; ++i)
+            polyHits[(i * columns) / m_polySub] = true;
+
+        // Draw filled colored squares
+        for (int col = 0; col < columns; ++col) {
+            for (int row = 0; row < rows; ++row) {
+                int logicalRow = row;
+                int x = x0 + col * cellSize;
+                int y = y0 + row * cellSize;
+                QRect cell(x, y, cellSize, cellSize);
+
+                bool isMain = (logicalRow == 1) && mainHits[col];
+                bool isPoly = (logicalRow == 0) && polyHits[col];
+                bool isCoincide = mainHits[col] && polyHits[col];
+
+                QColor color = QColor(20, 20, 20);
+                if (isCoincide)
+                    color = m_accentColor.lighter(140); // lighter accent for overlap (optional)
+                else if (isMain)
+                    color = m_accentColor;
+                else if (isPoly)
+                    color = m_accentColor.darker(180); // dark accent for poly
+
+                if (col == m_gridHighlight && (isMain || isPoly)) {
+                    color = Qt::white;
+                }
+
+                p.fillRect(cell, color);
+            }
+        }
+
+        // Draw sharp grid lines
+        p.setPen(QPen(QColor(80,80,80), 1));
+        for (int col = 0; col <= columns; ++col) {
+            int x = x0 + col * cellSize;
+            p.drawLine(x, y0, x, y0 + gridH);
+        }
+        for (int row = 0; row <= rows; ++row) {
+            int y = y0 + row * cellSize;
+            p.drawLine(x0, y, x0 + gridW, y);
+        }
+
+        return;
+    }
+
+    // --- CIRCLES MODE ---
+    p.setRenderHint(QPainter::Antialiasing, true); // BEAUTIFUL CIRCLES
 
     const int maxPerRow = 12;
     const int minCircle = 18;

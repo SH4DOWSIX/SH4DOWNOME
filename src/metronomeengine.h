@@ -2,13 +2,11 @@
 
 #include <QObject>
 #include <QTimer>
+#include <QDateTime>
 #include <vector>
 
 enum class NoteValue {
-    Quarter = 0,
-    Eighth,
-    Sixteenth,
-    Triplet,
+    Quarter, Eighth, Sixteenth, Triplet,
     Eighth_Sixteenth_Sixteenth,
     Sixteenth_Sixteenth_Eighth,
     Sixteenth_Eighth_Sixteenth,
@@ -22,39 +20,74 @@ enum class NoteValue {
     EighthRest_Eighth_EighthRest
 };
 
-class MetronomeEngine : public QObject {
+struct Polyrhythm {
+    int primaryBeats = 3;
+    int secondaryBeats = 2;
+};
+
+struct PolyEvent {
+    double timeMs;
+    int type; // 0 = main, 1 = poly
+};
+
+class MetronomeEngine : public QObject
+{
     Q_OBJECT
 public:
     explicit MetronomeEngine(QObject *parent = nullptr);
 
     void setTempo(int bpm);
-    void setTimeSignature(int numerator, int denominator);
+    void setTimeSignature(int num, int denom);
     void setAccentPattern(const std::vector<bool> &accents);
     void setSubdivision(NoteValue noteValue);
+    void setPolyrhythmEnabled(bool enable);
+    void setPolyrhythm(int main, int poly);
+
     void start();
     void stop();
     bool isRunning() const;
     int currentPulse() const;
     bool isAccent(int beatIdx) const;
+    bool isPolyrhythmEnabled() const { return polyrhythmEnabled; }
+    Polyrhythm getPolyrhythm() const { return polyrhythm; }
 
 signals:
-    void pulse(int pulseIdx, bool accent, bool isBeat);
+    void pulse(int eventIdx, bool accent, bool polyAccent, bool isMainBeat);
+
+protected:
+    void timerEvent(QTimerEvent *event) override;
 
 private slots:
     void tick();
 
 private:
+    // General metronome state
     QTimer timer;
     int tempoBpm = 120;
     int numerator = 4;
     int denominator = 4;
-    NoteValue subdivision = NoteValue::Quarter;
     int pulseIdx = 0;
-    std::vector<bool> accentPattern;
-    bool running = false;
     int patternStep = 0;
+    bool running = false;
 
+    NoteValue subdivision = NoteValue::Quarter;
+    std::vector<bool> accentPattern;
+
+    // Polyrhythm state
+    bool polyrhythmEnabled = false;
+    Polyrhythm polyrhythm;
+    double barMs = 0.0;
+    qint64 lastBarStartMs = 0;
+
+    // --- Polyrhythm event scheduling ---
+    std::vector<PolyEvent> scheduledEvents;
+    int schedIdx = 0;
+    void startPolyrhythmBar(bool newBar);
+    void scheduleNextPolyrhythmPulse();
+    void handlePolyrhythmPulse();
+
+    // --- Standard metronome logic ---
     int pulsesPerBar() const;
-    double pulseIntervalMs(int pulseInPattern = 0) const;
+    double pulseIntervalMs(int pulseInPattern) const;
     bool isMainBeat(int pulseIdx) const;
 };
