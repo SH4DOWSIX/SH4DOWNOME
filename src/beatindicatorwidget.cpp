@@ -96,13 +96,13 @@ void BeatIndicatorWidget::paintEvent(QPaintEvent *event) {
                 bool isPoly = (logicalRow == 0) && polyHits[col];
                 bool isCoincide = mainHits[col] && polyHits[col];
 
-                QColor color = QColor(20, 20, 20);
+                QColor color = QColor(100, 100, 100);
                 if (isCoincide)
-                    color = m_accentColor.lighter(140); // lighter accent for overlap (optional)
+                    color = m_accentColor.lighter(120); // lighter accent for overlap (optional)
                 else if (isMain)
-                    color = m_accentColor;
+                    color = m_accentColor.darker(200);
                 else if (isPoly)
-                    color = m_accentColor.darker(180); // dark accent for poly
+                    color = m_accentColor.darker(120); // dark accent for poly
 
                 if (col == m_gridHighlight && (isMain || isPoly)) {
                     color = Qt::white;
@@ -113,7 +113,7 @@ void BeatIndicatorWidget::paintEvent(QPaintEvent *event) {
         }
 
         // Draw sharp grid lines
-        p.setPen(QPen(QColor(80,80,80), 1));
+        p.setPen(QPen(QColor(0,0,0), 1));
         for (int col = 0; col <= columns; ++col) {
             int x = x0 + col * cellSize;
             p.drawLine(x, y0, x, y0 + gridH);

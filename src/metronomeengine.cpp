@@ -67,7 +67,6 @@ void MetronomeEngine::start() {
     schedIdx = 0;
     scheduledEvents.clear();
     lastBarStartMs = 0;
-    qDebug() << "[start] running:" << running << "polyrhythmEnabled:" << polyrhythmEnabled;
     if (polyrhythmEnabled) {
         startPolyrhythmBar(true);
     } else {
@@ -81,7 +80,6 @@ void MetronomeEngine::stop() {
     schedIdx = 0;
     scheduledEvents.clear();
     lastBarStartMs = 0; // Reset for next play
-    qDebug() << "[stop] running reset to false";
 }
 
 bool MetronomeEngine::isRunning() const {
@@ -151,7 +149,6 @@ void MetronomeEngine::startPolyrhythmBar(bool newBar) {
 
     // Debug: print all event times for verification
     for (const auto& ev : scheduledEvents) {
-        qDebug() << "Scheduled event at" << ev.timeMs << "ms, type:" << ev.type;
     }
 
     scheduleNextPolyrhythmPulse();
@@ -160,7 +157,6 @@ void MetronomeEngine::startPolyrhythmBar(bool newBar) {
 void MetronomeEngine::scheduleNextPolyrhythmPulse() {
     if (!running) return;
     if (schedIdx >= static_cast<int>(scheduledEvents.size())) {
-        qDebug() << "[scheduleNextPolyrhythmPulse] end of bar, scheduling restart";
         timer.start(30); // Short pause between bars
         return;
     }
@@ -168,17 +164,14 @@ void MetronomeEngine::scheduleNextPolyrhythmPulse() {
     double eventTime = scheduledEvents[schedIdx].timeMs;
     double delay = eventTime - nowMs;
     if (delay < 1) delay = 1;
-    qDebug() << "[scheduleNextPolyrhythmPulse] scheduling pulse" << schedIdx << "in" << delay << "ms";
     timer.start(static_cast<int>(delay));
 }
 
 void MetronomeEngine::tick() {
-    qDebug() << "[tick] running:" << running << "polyrhythmEnabled:" << polyrhythmEnabled << "schedIdx:" << schedIdx;
     if (!running) return;
 
     if (polyrhythmEnabled) {
         if (scheduledEvents.empty() || schedIdx >= static_cast<int>(scheduledEvents.size())) {
-            qDebug() << "[tick] Bar complete, starting new bar";
             startPolyrhythmBar(true);
             return;
         }
@@ -189,13 +182,10 @@ void MetronomeEngine::tick() {
                && nowMs >= scheduledEvents[schedIdx].timeMs - 2.0) {
             int type = scheduledEvents[schedIdx].type;
             if (type == 2) {
-                qDebug() << "[pulse] Downbeat";
                 emit pulse(0, true, true, true); // Both main and poly on downbeat
             } else if (type == 0) {
-                qDebug() << "[pulse] Main";
                 emit pulse(schedIdx, true, false, true);
             } else if (type == 1) {
-                qDebug() << "[pulse] Poly";
                 emit pulse(schedIdx, false, true, false);
             }
             ++schedIdx;
@@ -258,7 +248,6 @@ void MetronomeEngine::tick() {
     }
 
     if (playPulse) {
-        qDebug() << "[pulse] Regular" << pulseIdx << "accent:" << accent << "isBeat:" << isBeat;
         emit pulse(pulseIdx, accent, false, isBeat);
     }
 

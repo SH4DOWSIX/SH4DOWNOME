@@ -9,6 +9,7 @@
 #include <QTimer>
 #include "beatindicatorwidget.h"
 #include "obsbeatwidget.h"
+#include <QLabel>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -73,6 +74,13 @@ private:
     int currentNumerator = 4;
     int currentDenominator = 4;
 
+    void updateSubPolyCell(int sectionIdx);
+    bool m_metronomeWasRunning = false;
+    void onTempoSliderPressed();
+    void onTempoSliderReleased();
+    void onSpinTempoEditingFinished();
+    QTimer* m_tapTempoResumeTimer = nullptr;
+
     void setTimeSignature(int numerator, int denominator);
     void updateTimeSignatureDisplay();
     QString soundFileForSet(const QString& set, bool accent) const;
@@ -95,6 +103,19 @@ private:
     QColor m_accentColor = QColor(150,0,0);
     bool m_obsHidden = false;
     bool m_obsInLayout = true;
+
+    QLabel* m_labelPolyrhythmNumerator = nullptr;
+    QLabel* m_labelPolyrhythmDenominator = nullptr;
+    QWidget* m_polyrhythmNumberWidget = nullptr;
+    void updatePolyrhythmUI();
+    void showPolyrhythmNumberDialog();
+    void onPolyrhythmNumberClicked();
+
+
+    bool m_timerEnabled = false;
+void onTimerToggle();
+void updateTimerUI();
+
 
     PresetManager presetManager;
     const QString presetFile = "presets.json";

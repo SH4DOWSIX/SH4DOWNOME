@@ -92,6 +92,20 @@ MainWindow::MainWindow(QWidget *parent)
 
     QVBoxLayout* mainLayout = qobject_cast<QVBoxLayout*>(ui->centralwidget->layout());
 
+    m_tapTempoResumeTimer = new QTimer(this);
+m_tapTempoResumeTimer->setSingleShot(true);
+connect(m_tapTempoResumeTimer, &QTimer::timeout, this, [this]() {
+    if (m_metronomeWasRunning) {
+        metronome.start();
+        m_metronomeWasRunning = false;
+    }
+});
+
+
+connect(ui->btnTimer, &QPushButton::clicked, this, &MainWindow::onTimerToggle);
+// Hide timer widgets at startup if not enabled
+updateTimerUI();
+
     const int minRows = 8;
     int rowH = ui->tableSections->verticalHeader()->defaultSectionSize();
     int headerH = ui->tableSections->horizontalHeader()->height();
@@ -121,14 +135,19 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->btnTapTempo, &QPushButton::clicked, this, &MainWindow::onTapTempo);
     connect(ui->sliderTempo, &QSlider::valueChanged, this, &MainWindow::onTempoSliderChanged);
     connect(ui->btnRenamePreset, &QPushButton::clicked, this, &MainWindow::onRenamePreset);
+    connect(ui->spinTempo, &QSpinBox::editingFinished, this, &MainWindow::onSpinTempoEditingFinished);
     ui->verticalLayoutTimeSignature->setSpacing(0);
     ui->spinTempo->setAlignment(Qt::AlignCenter);
+    ui->timeEditDuration->setAlignment(Qt::AlignCenter);
 
+    // Remove labels from old layout
     ui->verticalLayoutTimeSignature->removeWidget(ui->labelNumerator);
     ui->verticalLayoutTimeSignature->removeWidget(ui->labelDenominator);
 
+    // --- Time signature container and layout (create ONCE) ---
     QWidget* timeSigContainer = new QWidget(this);
     timeSigContainer->setFixedSize(40, 30);
+    timeSigContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     QVBoxLayout* timeSigLayout = new QVBoxLayout(timeSigContainer);
     timeSigLayout->setContentsMargins(0, 0, 0, 0);
     timeSigLayout->setSpacing(0);
@@ -154,10 +173,50 @@ MainWindow::MainWindow(QWidget *parent)
             setTimeSignature(dlg.selectedNumerator(), dlg.selectedDenominator());
     });
 
+    // --- Polyrhythm numbers container (mirror timeSigContainer) ---
+    m_polyrhythmNumberWidget = new QWidget(this);
+    m_polyrhythmNumberWidget->setFixedSize(timeSigContainer->size());
+    m_polyrhythmNumberWidget->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    QVBoxLayout* polyNumLayout = new QVBoxLayout(m_polyrhythmNumberWidget);
+    polyNumLayout->setContentsMargins(0, 0, 0, 0);
+    polyNumLayout->setSpacing(0);
+
+    m_labelPolyrhythmNumerator = new QLabel("3", m_polyrhythmNumberWidget);
+    m_labelPolyrhythmDenominator = new QLabel("2", m_polyrhythmNumberWidget);
+
+    QFont tsFont = ui->labelNumerator->font();
+    QString tsStyle = ui->labelNumerator->styleSheet();
+    Qt::Alignment numeratorAlign = Qt::AlignHCenter | Qt::AlignBottom;
+    Qt::Alignment denominatorAlign = Qt::AlignHCenter | Qt::AlignTop;
+
+    m_labelPolyrhythmNumerator->setFont(tsFont);
+    m_labelPolyrhythmDenominator->setFont(tsFont);
+    m_labelPolyrhythmNumerator->setStyleSheet(tsStyle);
+    m_labelPolyrhythmDenominator->setStyleSheet(tsStyle);
+    m_labelPolyrhythmNumerator->setAlignment(numeratorAlign);
+    m_labelPolyrhythmDenominator->setAlignment(denominatorAlign);
+m_labelPolyrhythmNumerator->setContentsMargins(0, 0, 0, -2);   // negative bottom
+m_labelPolyrhythmDenominator->setContentsMargins(0, 0, 0, 0); // negative top
+
+ui->tempoRowWidget->setFixedHeight(45);
+
+
+
+    polyNumLayout->addWidget(m_labelPolyrhythmNumerator);
+    polyNumLayout->addWidget(m_labelPolyrhythmDenominator);
+
+    // Insert in the same place as before
+    int idx = ui->tempoLayout->indexOf(ui->labelSubdivisionImage);
+    ui->tempoLayout->insertWidget(idx, m_polyrhythmNumberWidget);
+    m_polyrhythmNumberWidget->setCursor(Qt::PointingHandCursor);
+    m_polyrhythmNumberWidget->setVisible(false);
+    m_polyrhythmNumberWidget->installEventFilter(this);
+
     // --- Only connect the UI's polyrhythm button, don't dynamically create/insert it! ---
     connect(ui->btnPolyrhythm, &QPushButton::clicked, this, &MainWindow::onPolyrhythmClicked);
 
     ui->labelSubdivisionImage->installEventFilter(this);
+    ui->spinTempo->installEventFilter(this);
 
     timer = new QTimer(this);
     timer->setInterval(1000);
@@ -193,9 +252,9 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     ui->tableSections->setColumnWidth(0, 173);
-    ui->tableSections->setColumnWidth(1, 50);
+    ui->tableSections->setColumnWidth(3, 50);
+    ui->tableSections->setColumnWidth(1, 60);
     ui->tableSections->setColumnWidth(2, 60);
-    ui->tableSections->setColumnWidth(3, 60);
     ui->tableSections->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
     ui->tableSections->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
     ui->tableSections->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
@@ -207,6 +266,13 @@ MainWindow::MainWindow(QWidget *parent)
     ui->tableSections->setDragDropMode(QAbstractItemView::InternalMove);
     ui->tableSections->setSelectionMode(QAbstractItemView::SingleSelection);
     ui->tableSections->setDefaultDropAction(Qt::MoveAction);
+
+    connect(ui->sliderTempo, &QSlider::sliderPressed, this, &MainWindow::onTempoSliderPressed);
+    connect(ui->sliderTempo, &QSlider::sliderReleased, this, &MainWindow::onTempoSliderReleased);
+    connect(ui->sliderTempo, QOverload<int>::of(&QSlider::valueChanged), this, &MainWindow::onTempoChanged);
+
+    connect(ui->spinTempo, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onTempoChanged);
+    connect(ui->spinTempo, &QSpinBox::editingFinished, this, &MainWindow::onSpinTempoEditingFinished);
 
     connect(ui->tableSections, SIGNAL(rowMoved(int,int)), this, SLOT(onSectionRowMoved(int,int)));
     connect(ui->btnSettings, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
@@ -310,6 +376,12 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
         onSubdivisionImageClicked();
         return true;
     }
+    if (obj == m_polyrhythmNumberWidget && event->type() == QEvent::MouseButtonRelease) {
+        onPolyrhythmNumberClicked();
+        return true;
+    }
+    // --- ADDED: Pause metronome when spinTempo receives focus ---
+    
     return QMainWindow::eventFilter(obj, event);
 }
 
@@ -331,19 +403,41 @@ void MainWindow::setTimeSignature(int numerator, int denominator) {
         currentPreset.sections[currentSectionIdx].denominator = denominator;
         saveUIToSection(currentSectionIdx, true);
         if (currentSectionIdx < ui->tableSections->rowCount()) {
-            QTableWidgetItem* timeSigItem = ui->tableSections->item(currentSectionIdx, 2);
+            QTableWidgetItem* timeSigItem = ui->tableSections->item(currentSectionIdx, 1);
             if (timeSigItem)
                 timeSigItem->setText(QString("%1/%2").arg(numerator).arg(denominator));
         }
     }
     metronome.setTimeSignature(numerator, denominator);
     setupAccentControls(numerator);
-    int beatsPerBar = numerator;
-    int subdivisions = subdivisionCountFromIndex(getCurrentSubdivisionIndex());
-    m_beatIndicatorWidget->setBeats(beatsPerBar);
-    m_beatIndicatorWidget->setSubdivisions(subdivisions);
-    m_beatIndicatorWidget->setCurrent(0, 0);
-    m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
+
+    // --- Update beat indicator according to mode ---
+    if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size() && 
+        currentPreset.sections[currentSectionIdx].hasPolyrhythm) {
+        const auto& poly = currentPreset.sections[currentSectionIdx].polyrhythm;
+        m_beatIndicatorWidget->setPolyrhythmGrid(
+            poly.primaryBeats,
+            poly.secondaryBeats,
+            -1 // no highlight when not playing
+        );
+        m_beatIndicatorWidget->setMode(BeatIndicatorMode::PolyrhythmGrid);
+    } else {
+        int beatsPerBar = numerator;
+        int subdivisions = subdivisionCountFromIndex(getCurrentSubdivisionIndex());
+        m_beatIndicatorWidget->setBeats(beatsPerBar);
+        m_beatIndicatorWidget->setSubdivisions(subdivisions);
+        m_beatIndicatorWidget->setCurrent(0, 0);
+        m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
+    }
+
+    // --- Restart metronome if running and in polyrhythm mode ---
+    if (metronome.isRunning() &&
+        currentSectionIdx >= 0 &&
+        currentSectionIdx < (int)currentPreset.sections.size() &&
+        currentPreset.sections[currentSectionIdx].hasPolyrhythm) {
+        metronome.stop();
+        metronome.start();
+    }
 }
 
 void MainWindow::updateTimeSignatureDisplay() {
@@ -354,12 +448,11 @@ void MainWindow::updateTimeSignatureDisplay() {
 }
 
 void MainWindow::onStartClicked() {
-    if (ui->checkTimerEnabled->isChecked()) {
+    if (m_timerEnabled) {
         QTime time = ui->timeEditDuration->time();
         timerSecondsRemaining = time.minute() * 60 + time.second();
         updateTimerLabel();
         timer->start();
-        ui->checkTimerEnabled->setEnabled(false);
         ui->timeEditDuration->setEnabled(false);
     }
 }
@@ -367,7 +460,6 @@ void MainWindow::onStartClicked() {
 void MainWindow::onStopClicked() {
     timer->stop();
     ui->labelTimerRemaining->setText("Time remaining: 00:00");
-    ui->checkTimerEnabled->setEnabled(true);
     ui->timeEditDuration->setEnabled(true);
 }
 
@@ -383,6 +475,22 @@ void MainWindow::onTimerTick() {
         }
     }
 }
+
+void MainWindow::onTimerToggle() {
+    m_timerEnabled = !m_timerEnabled;
+    updateTimerUI();
+    if (!m_timerEnabled) {
+        timer->stop();
+        ui->labelTimerRemaining->setText("Time remaining: 00:00");
+    }
+}
+
+void MainWindow::updateTimerUI() {
+    ui->btnTimer->setStyleSheet(m_timerEnabled ? "background-color: #009f00; color: white;" : "");
+    ui->timeEditDuration->setVisible(m_timerEnabled);
+    ui->labelTimerRemaining->setVisible(m_timerEnabled);
+}
+
 
 void MainWindow::updateTimerLabel() {
     int mins = timerSecondsRemaining / 60;
@@ -407,34 +515,77 @@ void MainWindow::onStartStop() {
 }
 
 void MainWindow::onTempoSliderChanged(int value) {
-    if (ui->spinTempo->value() != value)
-        ui->spinTempo->setValue(value);
+    // No-op
 }
 
+void MainWindow::onTempoSliderPressed() {
+    if (metronome.isRunning()) {
+        m_metronomeWasRunning = true;
+        metronome.stop();
+    } else {
+        m_metronomeWasRunning = false;
+    }
+}
+
+void MainWindow::onTempoSliderReleased() {
+    if (m_metronomeWasRunning) {
+        metronome.start();
+        m_metronomeWasRunning = false;
+    }
+}
+
+void MainWindow::onSpinTempoEditingFinished() {
+    if (m_metronomeWasRunning) {
+        metronome.start();
+        m_metronomeWasRunning = false;
+    }
+}
+
+
 void MainWindow::onTempoChanged(int value) {
+    // Pause metronome on user tempo change (if not already paused)
+    if (metronome.isRunning() && !m_metronomeWasRunning) {
+        m_metronomeWasRunning = true;
+        metronome.stop();
+    }
+
+    QSignalBlocker block1(ui->spinTempo);
+    QSignalBlocker block2(ui->sliderTempo);
+
     if (ui->sliderTempo->value() != value)
         ui->sliderTempo->setValue(value);
+    if (ui->spinTempo->value() != value)
+        ui->spinTempo->setValue(value);
 
     if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size())
         currentPreset.sections[currentSectionIdx].tempo = value;
 
     metronome.setTempo(value);
+
     saveUIToSection(currentSectionIdx, true);
 
     if (currentSectionIdx >= 0 && currentSectionIdx < ui->tableSections->rowCount()) {
-        QTableWidgetItem* tempoItem = ui->tableSections->item(currentSectionIdx, 1);
+        QTableWidgetItem* tempoItem = ui->tableSections->item(currentSectionIdx, 3);
         if (tempoItem) tempoItem->setText(QString::number(value));
     }
     if (ui->obsBeatWidget) ui->obsBeatWidget->setTempo(value);
 }
 
 void MainWindow::onTapTempo() {
-    qint64 now = QDateTime::currentMSecsSinceEpoch();
     const int tapResetMs = 2000;
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
 
+    // Stop metronome on first tap if running
     if (tapTimes.isEmpty() || (now - tapTimes.last()) > tapResetMs) {
+        if (metronome.isRunning()) {
+            m_metronomeWasRunning = true;
+            metronome.stop();
+        } else {
+            m_metronomeWasRunning = false;
+        }
         tapTimes.clear();
     }
+
     tapTimes.append(now);
 
     if (tapTimes.size() >= 2) {
@@ -449,7 +600,11 @@ void MainWindow::onTapTempo() {
     }
     if (tapTimes.size() > 8)
         tapTimes.removeFirst();
+
+    // Each tap restarts the timeout; resume after tapResetMs of inactivity
+    m_tapTempoResumeTimer->start(tapResetMs);
 }
+
 
 void MainWindow::onSubdivisionChanged(int index) {
     if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size())
@@ -458,20 +613,39 @@ void MainWindow::onSubdivisionChanged(int index) {
     metronome.setSubdivision(noteValue);
     saveUIToSection(currentSectionIdx, true);
 
+    // Update Sub/Poly cell live (icon for subdivision, poly text if polyrhythm enabled)
     if (currentSectionIdx >= 0 && currentSectionIdx < ui->tableSections->rowCount()) {
-        QTableWidgetItem* subdivItem = ui->tableSections->item(currentSectionIdx, 3);
-        if (subdivItem) {
-            subdivItem->setIcon(QIcon(subdivisionImagePathFromIndex(index)));
-            subdivItem->setToolTip(subdivisionTextFromIndex(index));
-            subdivItem->setText("");
-        }
+        updateSubPolyCell(currentSectionIdx);
     }
+
     setSubdivisionImage(index);
     if (ui->obsBeatWidget)
         ui->obsBeatWidget->setSubdivisionImagePath(subdivisionImagePathFromIndex(index));
 
     m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
 }
+
+void MainWindow::updateSubPolyCell(int sectionIdx) {
+    if (sectionIdx < 0 || sectionIdx >= (int)currentPreset.sections.size()) return;
+    const auto& s = currentPreset.sections[sectionIdx];
+    QTableWidgetItem* item = ui->tableSections->item(sectionIdx, 2);
+    if (!item) {
+        item = new QTableWidgetItem();
+        ui->tableSections->setItem(sectionIdx, 2, item);
+    }
+    if (s.hasPolyrhythm) {
+        item->setText(QString("%1/%2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+        item->setIcon(QIcon()); // Remove icon
+        item->setToolTip("Polyrhythm: " + QString("%1 over %2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+    } else {
+        item->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
+        item->setToolTip(subdivisionTextFromIndex(s.subdivision));
+        item->setText("");
+    }
+    item->setFlags(item->flags() & ~Qt::ItemIsEditable);
+    item->setTextAlignment(Qt::AlignCenter);
+}
+
 
 void MainWindow::onSubdivisionImageClicked() {
     SubdivisionSelectorDialog dlg(this);
@@ -695,6 +869,7 @@ void MainWindow::onMetronomePulse(int pulseIdx, bool accent, bool polyAccent, bo
         });
     }
 }
+
 void MainWindow::refreshPresetList() {
     ui->comboPresets->clear();
     QStringList names = presetManager.listPresetNames();
@@ -745,19 +920,27 @@ void MainWindow::onSavePreset() {
     QTableWidgetItem* tempoItem = new QTableWidgetItem(QString::number(s.tempo));
     tempoItem->setFlags(tempoItem->flags() & ~Qt::ItemIsEditable);
     tempoItem->setTextAlignment(Qt::AlignCenter);
-    ui->tableSections->setItem(0, 1, tempoItem);
+    ui->tableSections->setItem(0, 3, tempoItem);
 
     QTableWidgetItem* timeSigItem = new QTableWidgetItem("4/4");
     timeSigItem->setFlags(timeSigItem->flags() & ~Qt::ItemIsEditable);
     timeSigItem->setTextAlignment(Qt::AlignCenter);
-    ui->tableSections->setItem(0, 2, timeSigItem);
+    ui->tableSections->setItem(0, 1, timeSigItem);
 
-    QTableWidgetItem* subdivItem = new QTableWidgetItem();
-    subdivItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
-    subdivItem->setToolTip(subdivisionTextFromIndex(s.subdivision));
-    subdivItem->setFlags(subdivItem->flags() & ~Qt::ItemIsEditable);
-    subdivItem->setTextAlignment(Qt::AlignCenter);
-    ui->tableSections->setItem(0, 3, subdivItem);
+    // --- Sub/Poly column logic ---
+    QTableWidgetItem* subpolyItem = new QTableWidgetItem();
+    if (s.hasPolyrhythm) {
+        subpolyItem->setText(QString("%1/%2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+        subpolyItem->setTextAlignment(Qt::AlignCenter);
+        subpolyItem->setToolTip("Polyrhythm: " + QString("%1 over %2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+    } else {
+        subpolyItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
+        subpolyItem->setToolTip(subdivisionTextFromIndex(s.subdivision));
+        subpolyItem->setText("");
+    }
+    subpolyItem->setFlags(subpolyItem->flags() & ~Qt::ItemIsEditable);
+    subpolyItem->setTextAlignment(Qt::AlignCenter);
+    ui->tableSections->setItem(0, 2, subpolyItem);
 
     currentSectionIdx = 0;
     loadSectionToUI(0);
@@ -789,20 +972,28 @@ void MainWindow::onLoadPreset() {
         QTableWidgetItem* tempoItem = new QTableWidgetItem(QString::number(currentPreset.sections[i].tempo));
         tempoItem->setFlags(tempoItem->flags() & ~Qt::ItemIsEditable);
         tempoItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(i, 1, tempoItem);
+        ui->tableSections->setItem(i, 3, tempoItem);
 
         QTableWidgetItem* timeSigItem = new QTableWidgetItem(QString("%1/%2").arg(currentPreset.sections[i].numerator).arg(currentPreset.sections[i].denominator));
         timeSigItem->setFlags(timeSigItem->flags() & ~Qt::ItemIsEditable);
         timeSigItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(i, 2, timeSigItem);
+        ui->tableSections->setItem(i, 1, timeSigItem);
 
-        int subdivIdx = currentPreset.sections[i].subdivision;
-        QTableWidgetItem* subdivItem = new QTableWidgetItem();
-        subdivItem->setIcon(QIcon(subdivisionImagePathFromIndex(subdivIdx)));
-        subdivItem->setToolTip(subdivisionTextFromIndex(subdivIdx));
-        subdivItem->setFlags(subdivItem->flags() & ~Qt::ItemIsEditable);
-        subdivItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(i, 3, subdivItem);
+        // --- Sub/Poly column logic ---
+        const auto& sec = currentPreset.sections[i];
+        QTableWidgetItem* subpolyItem = new QTableWidgetItem();
+        if (sec.hasPolyrhythm) {
+            subpolyItem->setText(QString("%1/%2").arg(sec.polyrhythm.primaryBeats).arg(sec.polyrhythm.secondaryBeats));
+            subpolyItem->setTextAlignment(Qt::AlignCenter);
+            subpolyItem->setToolTip("Polyrhythm: " + QString("%1 over %2").arg(sec.polyrhythm.primaryBeats).arg(sec.polyrhythm.secondaryBeats));
+        } else {
+            subpolyItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(sec.subdivision), QSize(48, 48))));
+            subpolyItem->setToolTip(subdivisionTextFromIndex(sec.subdivision));
+            subpolyItem->setText("");
+        }
+        subpolyItem->setFlags(subpolyItem->flags() & ~Qt::ItemIsEditable);
+        subpolyItem->setTextAlignment(Qt::AlignCenter);
+        ui->tableSections->setItem(i, 2, subpolyItem);
     }
     if (!currentPreset.sections.empty()) {
         ui->tableSections->selectRow(0);
@@ -813,56 +1004,6 @@ void MainWindow::onLoadPreset() {
     } else {
         onAddSection();
     }
-}
-
-void MainWindow::onAddSection() {
-    saveUIToSection(currentSectionIdx, true);
-
-    MetronomeSection s;
-    s.label = QString("Section %1").arg(currentPreset.sections.size() + 1);
-    s.tempo = ui->spinTempo->value();
-    s.numerator = currentNumerator;
-    s.denominator = currentDenominator;
-    s.subdivision = getCurrentSubdivisionIndex();
-    s.accents.resize(accentChecks.size());
-    for (int i = 0; i < accentChecks.size(); ++i)
-        s.accents[i] = accentChecks[i]->isChecked();
-    s.hasPolyrhythm = false;
-    s.polyrhythm.primaryBeats = 3;
-    s.polyrhythm.secondaryBeats = 2;
-    currentPreset.sections.push_back(s);
-    int idx = currentPreset.sections.size() - 1;
-
-    QSignalBlocker blocker(ui->tableSections);
-
-    ui->tableSections->setRowCount(currentPreset.sections.size());
-
-    QTableWidgetItem* labelItem = new QTableWidgetItem(s.label);
-    labelItem->setFlags(labelItem->flags() | Qt::ItemIsEditable);
-    ui->tableSections->setItem(idx, 0, labelItem);
-
-    QTableWidgetItem* tempoItem = new QTableWidgetItem(QString::number(s.tempo));
-    tempoItem->setFlags(tempoItem->flags() & ~Qt::ItemIsEditable);
-    tempoItem->setTextAlignment(Qt::AlignCenter);
-    ui->tableSections->setItem(idx, 1, tempoItem);
-
-    QTableWidgetItem* timeSigItem = new QTableWidgetItem(QString("%1/%2").arg(s.numerator).arg(s.denominator));
-    timeSigItem->setFlags(timeSigItem->flags() & ~Qt::ItemIsEditable);
-    timeSigItem->setTextAlignment(Qt::AlignCenter);
-    ui->tableSections->setItem(idx, 2, timeSigItem);
-
-    QTableWidgetItem* subdivItem = new QTableWidgetItem();
-    subdivItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
-    subdivItem->setToolTip(subdivisionTextFromIndex(s.subdivision));
-    subdivItem->setFlags(subdivItem->flags() & ~Qt::ItemIsEditable);
-    subdivItem->setTextAlignment(Qt::AlignCenter);
-    ui->tableSections->setItem(idx, 3, subdivItem);
-
-    loadSectionToUI(idx);
-    ui->tableSections->selectRow(idx);
-
-    presetManager.savePreset(currentPreset);
-    presetManager.saveToDisk(presetFile);
 }
 
 void MainWindow::onSaveSection() {
@@ -880,19 +1021,27 @@ void MainWindow::onSaveSection() {
         QTableWidgetItem* tempoItem = new QTableWidgetItem(QString::number(s.tempo));
         tempoItem->setFlags(tempoItem->flags() & ~Qt::ItemIsEditable);
         tempoItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(currentSectionIdx, 1, tempoItem);
+        ui->tableSections->setItem(currentSectionIdx, 3, tempoItem);
 
         QTableWidgetItem* timeSigItem = new QTableWidgetItem(QString("%1/%2").arg(s.numerator).arg(s.denominator));
         timeSigItem->setFlags(timeSigItem->flags() & ~Qt::ItemIsEditable);
         timeSigItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(currentSectionIdx, 2, timeSigItem);
+        ui->tableSections->setItem(currentSectionIdx, 1, timeSigItem);
 
-        QTableWidgetItem* subdivItem = new QTableWidgetItem();
-        subdivItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
-        subdivItem->setToolTip(subdivisionTextFromIndex(s.subdivision));
-        subdivItem->setFlags(subdivItem->flags() & ~Qt::ItemIsEditable);
-        subdivItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(currentSectionIdx, 3, subdivItem);
+        // --- Sub/Poly column logic ---
+        QTableWidgetItem* subpolyItem = new QTableWidgetItem();
+        if (s.hasPolyrhythm) {
+            subpolyItem->setText(QString("%1/%2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+            subpolyItem->setTextAlignment(Qt::AlignCenter);
+            subpolyItem->setToolTip("Polyrhythm: " + QString("%1 over %2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+        } else {
+            subpolyItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
+            subpolyItem->setToolTip(subdivisionTextFromIndex(s.subdivision));
+            subpolyItem->setText("");
+        }
+        subpolyItem->setFlags(subpolyItem->flags() & ~Qt::ItemIsEditable);
+        subpolyItem->setTextAlignment(Qt::AlignCenter);
+        ui->tableSections->setItem(currentSectionIdx, 2, subpolyItem);
     }
 
     presetManager.savePreset(currentPreset);
@@ -1023,23 +1172,39 @@ void MainWindow::loadSectionToUI(int idx) {
     for (QCheckBox* cb : accentChecks)
         cb->blockSignals(false);
 
+    // Update metronome parameters to match new section
     metronome.setTempo(s.tempo);
     metronome.setTimeSignature(s.numerator, s.denominator);
     NoteValue noteValue = noteValueFromIndex(s.subdivision);
     metronome.setSubdivision(noteValue);
     metronome.setAccentPattern(s.accents);
-
     metronome.setPolyrhythmEnabled(s.hasPolyrhythm);
     if (s.hasPolyrhythm) {
         metronome.setPolyrhythm(s.polyrhythm.primaryBeats, s.polyrhythm.secondaryBeats);
     }
 
-    int beatsPerBar = s.numerator;
-    int subdivisions = subdivisionCountFromIndex(s.subdivision);
-    m_beatIndicatorWidget->setBeats(beatsPerBar);
-    m_beatIndicatorWidget->setSubdivisions(subdivisions);
-    m_beatIndicatorWidget->setCurrent(0, 0);
-    m_beatIndicatorWidget->setMode(s.hasPolyrhythm ? BeatIndicatorMode::PolyrhythmGrid : BeatIndicatorMode::Circles);
+    // --- If metronome is running, restart so it starts the new section immediately ---
+    if (metronome.isRunning()) {
+        metronome.stop();
+        metronome.start();
+    }
+
+    // --- Update beat indicator immediately for polyrhythm or normal mode ---
+    if (s.hasPolyrhythm) {
+        m_beatIndicatorWidget->setPolyrhythmGrid(
+            s.polyrhythm.primaryBeats,
+            s.polyrhythm.secondaryBeats,
+            -1 // no highlight when not playing
+        );
+        m_beatIndicatorWidget->setMode(BeatIndicatorMode::PolyrhythmGrid);
+    } else {
+        int beatsPerBar = s.numerator;
+        int subdivisions = subdivisionCountFromIndex(s.subdivision);
+        m_beatIndicatorWidget->setBeats(beatsPerBar);
+        m_beatIndicatorWidget->setSubdivisions(subdivisions);
+        m_beatIndicatorWidget->setCurrent(0, 0);
+        m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
+    }
 
     setSubdivisionImage(s.subdivision);
 
@@ -1056,6 +1221,7 @@ void MainWindow::loadSectionToUI(int idx) {
 
     // --- Update polyrhythm button color! ---
     updatePolyrhythmButtonColor();
+    updatePolyrhythmUI();
 }
 
 void MainWindow::saveUIToSection(int idx, bool doAutosave) {
@@ -1100,20 +1266,27 @@ void MainWindow::onSectionRowMoved(int from, int to) {
         auto* tempoItem = new QTableWidgetItem(QString::number(s.tempo));
         tempoItem->setFlags(tempoItem->flags() & ~Qt::ItemIsEditable);
         tempoItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(i, 1, tempoItem);
+        ui->tableSections->setItem(i, 3, tempoItem);
 
         auto* timeSigItem = new QTableWidgetItem(QString("%1/%2").arg(s.numerator).arg(s.denominator));
         timeSigItem->setFlags(timeSigItem->flags() & ~Qt::ItemIsEditable);
         timeSigItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(i, 2, timeSigItem);
+        ui->tableSections->setItem(i, 1, timeSigItem);
 
-        auto* subdivItem = new QTableWidgetItem();
-        subdivItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
-        subdivItem->setToolTip(subdivisionTextFromIndex(s.subdivision));
-        subdivItem->setText("");
-        subdivItem->setFlags(subdivItem->flags() & ~Qt::ItemIsEditable);
-        subdivItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableSections->setItem(i, 3, subdivItem);
+        // --- Sub/Poly column logic ---
+        auto* subpolyItem = new QTableWidgetItem();
+        if (s.hasPolyrhythm) {
+            subpolyItem->setText(QString("%1/%2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+            subpolyItem->setTextAlignment(Qt::AlignCenter);
+            subpolyItem->setToolTip("Polyrhythm: " + QString("%1 over %2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+        } else {
+            subpolyItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
+            subpolyItem->setToolTip(subdivisionTextFromIndex(s.subdivision));
+            subpolyItem->setText("");
+        }
+        subpolyItem->setFlags(subpolyItem->flags() & ~Qt::ItemIsEditable);
+        subpolyItem->setTextAlignment(Qt::AlignCenter);
+        ui->tableSections->setItem(i, 2, subpolyItem);
     }
 
     presetManager.savePreset(currentPreset);
@@ -1182,31 +1355,158 @@ void MainWindow::onSettingsClicked()
     }
 }
 
+void MainWindow::updatePolyrhythmUI() {
+    bool enabled = false;
+    int mainBeats = 3, polyBeats = 2;
+    if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
+        enabled = currentPreset.sections[currentSectionIdx].hasPolyrhythm;
+        mainBeats = currentPreset.sections[currentSectionIdx].polyrhythm.primaryBeats;
+        polyBeats = currentPreset.sections[currentSectionIdx].polyrhythm.secondaryBeats;
+    }
+    if (enabled) {
+        ui->labelSubdivision->setText("Polyrhythm");
+        ui->labelSubdivisionImage->hide();
+        m_polyrhythmNumberWidget->setVisible(true);
+        m_labelPolyrhythmNumerator->setText(QString::number(mainBeats));
+        m_labelPolyrhythmDenominator->setText(QString::number(polyBeats));
+    } else {
+        ui->labelSubdivision->setText("Subdivision");
+        ui->labelSubdivisionImage->show();
+        m_polyrhythmNumberWidget->setVisible(false);
+    }
+}
+
 void MainWindow::onPolyrhythmClicked() {
     if (currentSectionIdx < 0 || currentSectionIdx >= (int)currentPreset.sections.size()) return;
     MetronomeSection& s = currentPreset.sections[currentSectionIdx];
-
-    PolyrhythmDialog dlg(this);
-    dlg.setPolyrhythmEnabled(s.hasPolyrhythm);
-    dlg.setPolyrhythm(s.polyrhythm.primaryBeats, s.polyrhythm.secondaryBeats);
-    if (dlg.exec() == QDialog::Accepted) {
-        s.hasPolyrhythm = dlg.polyrhythmEnabled();
-        s.polyrhythm.primaryBeats = dlg.primaryBeats();
-        s.polyrhythm.secondaryBeats = dlg.secondaryBeats();
-        metronome.setPolyrhythmEnabled(s.hasPolyrhythm);
+    s.hasPolyrhythm = !s.hasPolyrhythm;
+    metronome.setPolyrhythmEnabled(s.hasPolyrhythm);
+    if (s.hasPolyrhythm) {
         metronome.setPolyrhythm(s.polyrhythm.primaryBeats, s.polyrhythm.secondaryBeats);
-        saveUIToSection(currentSectionIdx, true);
-
-        // Immediately update the beat indicator
-        m_beatIndicatorWidget->setMode(s.hasPolyrhythm ? BeatIndicatorMode::PolyrhythmGrid : BeatIndicatorMode::Circles);
-        if (s.hasPolyrhythm) {
-            m_beatIndicatorWidget->setPolyrhythmGrid(s.polyrhythm.primaryBeats, s.polyrhythm.secondaryBeats, 0);
-        }
-        // Reset highlight order for new polyrhythm config
-        m_polyrhythmGridColumns.clear();
-        m_polyrhythmGridMain = 0;
-        m_polyrhythmGridPoly = 0;
     }
-    // --- Update polyrhythm button color after dialog ---
+    saveUIToSection(currentSectionIdx, true);
     updatePolyrhythmButtonColor();
+    updatePolyrhythmUI();
+    updateSubPolyCell(currentSectionIdx);
+
+    // --- Update beat indicator immediately ---
+    if (s.hasPolyrhythm) {
+        m_beatIndicatorWidget->setPolyrhythmGrid(
+            s.polyrhythm.primaryBeats,
+            s.polyrhythm.secondaryBeats,
+            -1 // no highlight when not playing
+        );
+        m_beatIndicatorWidget->setMode(BeatIndicatorMode::PolyrhythmGrid);
+    } else {
+        int beatsPerBar = s.numerator;
+        int subdivisions = subdivisionCountFromIndex(s.subdivision);
+        m_beatIndicatorWidget->setBeats(beatsPerBar);
+        m_beatIndicatorWidget->setSubdivisions(subdivisions);
+        m_beatIndicatorWidget->setCurrent(0, 0);
+        m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
+    }
+}
+
+void MainWindow::onPolyrhythmNumberClicked() {
+    showPolyrhythmNumberDialog();
+}
+
+void MainWindow::showPolyrhythmNumberDialog() {
+    if (currentSectionIdx < 0 || currentSectionIdx >= (int)currentPreset.sections.size()) return;
+    int mainB = currentPreset.sections[currentSectionIdx].polyrhythm.primaryBeats;
+    int polyB = currentPreset.sections[currentSectionIdx].polyrhythm.secondaryBeats;
+    PolyrhythmNumberDialog dlg(mainB, polyB, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        int pb = dlg.primaryBeats();
+        int sb = dlg.secondaryBeats();
+        MetronomeSection& section = currentPreset.sections[currentSectionIdx];
+        section.polyrhythm.primaryBeats = pb;
+        section.polyrhythm.secondaryBeats = sb;
+        metronome.setPolyrhythm(pb, sb);
+        saveUIToSection(currentSectionIdx, true);
+        updatePolyrhythmUI();
+        updateSubPolyCell(currentSectionIdx);
+
+        // --- Update beat indicator immediately ---
+        if (section.hasPolyrhythm) {
+            m_beatIndicatorWidget->setPolyrhythmGrid(
+                section.polyrhythm.primaryBeats,
+                section.polyrhythm.secondaryBeats,
+                -1 // no highlight when not playing
+            );
+            m_beatIndicatorWidget->setMode(BeatIndicatorMode::PolyrhythmGrid);
+        } else {
+            int beatsPerBar = section.numerator;
+            int subdivisions = subdivisionCountFromIndex(section.subdivision);
+            m_beatIndicatorWidget->setBeats(beatsPerBar);
+            m_beatIndicatorWidget->setSubdivisions(subdivisions);
+            m_beatIndicatorWidget->setCurrent(0, 0);
+            m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
+        }
+
+        // --- Restart metronome if running and in polyrhythm mode ---
+        if (metronome.isRunning() && section.hasPolyrhythm) {
+            metronome.stop();
+            metronome.start();
+        }
+    }
+}
+
+void MainWindow::onAddSection()
+{
+    saveUIToSection(currentSectionIdx, true);
+
+    MetronomeSection s;
+    s.label = QString("Section %1").arg(currentPreset.sections.size() + 1);
+    s.tempo = ui->spinTempo->value();
+    s.numerator = currentNumerator;
+    s.denominator = currentDenominator;
+    s.subdivision = getCurrentSubdivisionIndex();
+    s.accents.resize(accentChecks.size());
+    for (int i = 0; i < accentChecks.size(); ++i)
+        s.accents[i] = accentChecks[i]->isChecked();
+    s.hasPolyrhythm = false;
+    s.polyrhythm.primaryBeats = 3;
+    s.polyrhythm.secondaryBeats = 2;
+    currentPreset.sections.push_back(s);
+    int idx = currentPreset.sections.size() - 1;
+
+    QSignalBlocker blocker(ui->tableSections);
+
+    ui->tableSections->setRowCount(currentPreset.sections.size());
+
+    QTableWidgetItem* labelItem = new QTableWidgetItem(s.label);
+    labelItem->setFlags(labelItem->flags() | Qt::ItemIsEditable);
+    ui->tableSections->setItem(idx, 0, labelItem);
+
+    QTableWidgetItem* tempoItem = new QTableWidgetItem(QString::number(s.tempo));
+    tempoItem->setFlags(tempoItem->flags() & ~Qt::ItemIsEditable);
+    tempoItem->setTextAlignment(Qt::AlignCenter);
+    ui->tableSections->setItem(idx, 3, tempoItem);
+
+    QTableWidgetItem* timeSigItem = new QTableWidgetItem(QString("%1/%2").arg(s.numerator).arg(s.denominator));
+    timeSigItem->setFlags(timeSigItem->flags() & ~Qt::ItemIsEditable);
+    timeSigItem->setTextAlignment(Qt::AlignCenter);
+    ui->tableSections->setItem(idx, 1, timeSigItem);
+
+    // --- Sub/Poly column logic ---
+    QTableWidgetItem* subpolyItem = new QTableWidgetItem();
+    if (s.hasPolyrhythm) {
+        subpolyItem->setText(QString("%1/%2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+        subpolyItem->setTextAlignment(Qt::AlignCenter);
+        subpolyItem->setToolTip("Polyrhythm: " + QString("%1 over %2").arg(s.polyrhythm.primaryBeats).arg(s.polyrhythm.secondaryBeats));
+    } else {
+        subpolyItem->setIcon(QIcon(svgToPixmap(subdivisionImagePathFromIndex(s.subdivision), QSize(48, 48))));
+        subpolyItem->setToolTip(subdivisionTextFromIndex(s.subdivision));
+        subpolyItem->setText("");
+    }
+    subpolyItem->setFlags(subpolyItem->flags() & ~Qt::ItemIsEditable);
+    subpolyItem->setTextAlignment(Qt::AlignCenter);
+    ui->tableSections->setItem(idx, 2, subpolyItem);
+
+    loadSectionToUI(idx);
+    ui->tableSections->selectRow(idx);
+
+    presetManager.savePreset(currentPreset);
+    presetManager.saveToDisk(presetFile);
 }
