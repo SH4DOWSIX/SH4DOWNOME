@@ -2,8 +2,9 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QFont>
-#include <QPixmap>
 #include <QDialogButtonBox>
+#include <QLabel>
+#include <QPushButton>
 
 TimeSignatureDialog::TimeSignatureDialog(int numerator, int denominator, QWidget* parent)
     : QDialog(parent), m_numerator(numerator), m_denominator(denominator)
@@ -13,42 +14,55 @@ TimeSignatureDialog::TimeSignatureDialog(int numerator, int denominator, QWidget
     setMinimumWidth(320);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
+    mainLayout->setSpacing(20);
 
-    QLabel* clefLabel = new QLabel(this);
-    clefLabel->setPixmap(QPixmap(":/resources/treble_clef.png").scaled(48, 120, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    clefLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    // Title label (like Poly dialog)
+    QLabel* titleLabel = new QLabel("Time Signature", this);
+    QFont titleFont;
+    titleFont.setPointSize(16);
+    titleFont.setBold(true);
+    titleLabel->setFont(titleFont);
+    titleLabel->setAlignment(Qt::AlignCenter);
+    mainLayout->addWidget(titleLabel);
 
+    // Numerator ("Beats per Bar")
+    QLabel* labelBeatsPerBar = new QLabel("Beats per Bar", this);
+    QFont labelFont;
+    labelFont.setPointSize(10);
+    labelFont.setBold(true);
+    labelBeatsPerBar->setFont(labelFont);
+    labelBeatsPerBar->setAlignment(Qt::AlignCenter);
+    mainLayout->addWidget(labelBeatsPerBar);
+
+    QHBoxLayout* numRow = new QHBoxLayout;
     QPushButton* numMinus = new QPushButton("-", this);
-    QPushButton* numPlus = new QPushButton("+", this);
     numeratorLabel = new QLabel(QString::number(m_numerator), this);
     numeratorLabel->setAlignment(Qt::AlignCenter);
     numeratorLabel->setStyleSheet("font-size: 32pt; color: white;");
-
-    QHBoxLayout* numRow = new QHBoxLayout;
+    QPushButton* numPlus = new QPushButton("+", this);
     numRow->addWidget(numMinus);
     numRow->addWidget(numeratorLabel);
     numRow->addWidget(numPlus);
+    mainLayout->addLayout(numRow);
 
+    // Denominator ("Note Value")
+    QLabel* labelNoteValue = new QLabel("Note Value", this);
+    labelNoteValue->setFont(labelFont);
+    labelNoteValue->setAlignment(Qt::AlignCenter);
+    mainLayout->addWidget(labelNoteValue);
+
+    QHBoxLayout* denRow = new QHBoxLayout;
     QPushButton* denMinus = new QPushButton("-", this);
-    QPushButton* denPlus = new QPushButton("+", this);
     denominatorLabel = new QLabel(QString::number(m_denominator), this);
     denominatorLabel->setAlignment(Qt::AlignCenter);
     denominatorLabel->setStyleSheet("font-size: 32pt; color: white;");
-
-    QHBoxLayout* denRow = new QHBoxLayout;
+    QPushButton* denPlus = new QPushButton("+", this);
     denRow->addWidget(denMinus);
     denRow->addWidget(denominatorLabel);
     denRow->addWidget(denPlus);
+    mainLayout->addLayout(denRow);
 
-    QVBoxLayout* timeSigLayout = new QVBoxLayout;
-    timeSigLayout->addLayout(numRow);
-    timeSigLayout->addLayout(denRow);
-
-    QHBoxLayout* topRow = new QHBoxLayout;
-    topRow->addWidget(clefLabel);
-    topRow->addLayout(timeSigLayout);
-    mainLayout->addLayout(topRow);
-
+    // Preset options (as before)
     QGridLayout* presetLayout = new QGridLayout;
     struct Preset { int num, den; };
     std::vector<Preset> presets = { {2,4},{3,4},{4,4},{5,4},{3,8},{6,8} };
@@ -62,9 +76,11 @@ TimeSignatureDialog::TimeSignatureDialog(int numerator, int denominator, QWidget
     mainLayout->addLayout(presetLayout);
 
     QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok, this);
+    buttonBox->button(QDialogButtonBox::Ok)->setObjectName("buttonOK");
     connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
     mainLayout->addWidget(buttonBox);
 
+    // Connectors
     connect(numPlus, &QPushButton::clicked, this, &TimeSignatureDialog::onNumeratorPlus);
     connect(numMinus, &QPushButton::clicked, this, &TimeSignatureDialog::onNumeratorMinus);
     connect(denPlus, &QPushButton::clicked, this, &TimeSignatureDialog::onDenominatorPlus);

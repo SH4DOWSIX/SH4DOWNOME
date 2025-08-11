@@ -1,4 +1,3 @@
-// REPLACE the entire contents with the new dialog for polyrhythm number selection
 #pragma once
 
 #include <QDialog>
@@ -7,13 +6,8 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
-#include <QDialog>
 #include <QDialogButtonBox>
-#include <QLabel>
-#include <QPushButton>
-#include <QGridLayout>
-#include <QHBoxLayout>
-#include <QVBoxLayout>
+#include <vector>
 
 class PolyrhythmNumberDialog : public QDialog {
     Q_OBJECT
@@ -23,40 +17,60 @@ public:
     {
         setWindowTitle("Select Polyrhythm");
         setModal(true);
-        setMinimumWidth(260);
+        setMinimumWidth(320);
 
         QVBoxLayout* mainLayout = new QVBoxLayout(this);
+        mainLayout->setSpacing(20);
 
-        // Styled like time signature dialog (no clef)
+        // Title (match time signature dialog)
+        QLabel* titleLabel = new QLabel("Polyrhythm", this);
+        QFont titleFont;
+        titleFont.setPointSize(16);
+        titleFont.setBold(true);
+        titleLabel->setFont(titleFont);
+        titleLabel->setAlignment(Qt::AlignCenter);
+        mainLayout->addWidget(titleLabel);
+
+        // Main Beats label
+        QLabel* mainBeatsLabel = new QLabel("Main Beats", this);
+        QFont labelFont;
+        labelFont.setPointSize(10);
+        labelFont.setBold(true);
+        mainBeatsLabel->setFont(labelFont);
+        mainBeatsLabel->setAlignment(Qt::AlignCenter);
+        mainLayout->addWidget(mainBeatsLabel);
+
+        // Main Beats row
+        QHBoxLayout* mainRow = new QHBoxLayout;
         QPushButton* mainMinus = new QPushButton("-", this);
-        QPushButton* mainPlus = new QPushButton("+", this);
         mainLabel = new QLabel(QString::number(m_mainBeats), this);
         mainLabel->setAlignment(Qt::AlignCenter);
         mainLabel->setStyleSheet("font-size: 32pt; color: white;");
-
-        QHBoxLayout* mainRow = new QHBoxLayout;
+        QPushButton* mainPlus = new QPushButton("+", this);
         mainRow->addWidget(mainMinus);
         mainRow->addWidget(mainLabel);
         mainRow->addWidget(mainPlus);
+        mainLayout->addLayout(mainRow);
 
+        // Poly Beats label
+        QLabel* polyBeatsLabel = new QLabel("Poly Beats", this);
+        polyBeatsLabel->setFont(labelFont);
+        polyBeatsLabel->setAlignment(Qt::AlignCenter);
+        mainLayout->addWidget(polyBeatsLabel);
+
+        // Poly Beats row
+        QHBoxLayout* polyRow = new QHBoxLayout;
         QPushButton* polyMinus = new QPushButton("-", this);
-        QPushButton* polyPlus = new QPushButton("+", this);
         polyLabel = new QLabel(QString::number(m_polyBeats), this);
         polyLabel->setAlignment(Qt::AlignCenter);
         polyLabel->setStyleSheet("font-size: 32pt; color: white;");
-
-        QHBoxLayout* polyRow = new QHBoxLayout;
+        QPushButton* polyPlus = new QPushButton("+", this);
         polyRow->addWidget(polyMinus);
         polyRow->addWidget(polyLabel);
         polyRow->addWidget(polyPlus);
+        mainLayout->addLayout(polyRow);
 
-        QVBoxLayout* numLayout = new QVBoxLayout;
-        numLayout->addLayout(mainRow);
-        numLayout->addLayout(polyRow);
-
-        mainLayout->addLayout(numLayout);
-
-        // Presets row, e.g. 3:2, 3:4, 5:4, 7:3
+        // Preset options (as before)
         QGridLayout* presetLayout = new QGridLayout;
         struct Preset { int main, poly; };
         std::vector<Preset> presets = { {3,2},{3,4},{4,3},{5,4},{7,3},{4,5} };
@@ -73,6 +87,7 @@ public:
         mainLayout->addLayout(presetLayout);
 
         QDialogButtonBox* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok, this);
+        buttonBox->button(QDialogButtonBox::Ok)->setObjectName("buttonOK");
         connect(buttonBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
         mainLayout->addWidget(buttonBox);
 

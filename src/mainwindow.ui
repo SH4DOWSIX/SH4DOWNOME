@@ -196,18 +196,35 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="btnTimer">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
-             </property>
-             <property name="text">
-              <string>Timer Speed</string>
-             </property>
-             <property name="toolTip">
-              <string>Show the timer and speed modes</string>
-             </property>
-            </widget>
-           </item>
+ <layout class="QHBoxLayout">
+  <item>
+   <widget class="QPushButton" name="btnTimer">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
+    </property>
+    <property name="text">
+     <string>Timer</string>
+    </property>
+    <property name="toolTip">
+     <string>Show or hide the timer area</string>
+    </property>
+   </widget>
+  </item>
+  <item>
+   <widget class="QPushButton" name="btnSpeed">
+    <property name="sizePolicy">
+     <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
+    </property>
+    <property name="text">
+     <string>Speed</string>
+    </property>
+    <property name="toolTip">
+     <string>Show or hide the speed trainer area</string>
+    </property>
+   </widget>
+  </item>
+ </layout>
+</item>
            <item>
             <widget class="QPushButton" name="btnTapTempo">
              <property name="sizePolicy">
@@ -551,6 +568,11 @@
              <height>16777215</height>
             </size>
            </property>
+           <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
            <property name="text">
             <string>Volume</string>
            </property>
@@ -611,6 +633,11 @@
          </item>
          <item>
           <widget class="QSpinBox" name="spinVolume">
+          <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Fixed" vsizetype="Fixed"/>
            </property>
@@ -623,93 +650,65 @@
            <property name="value">
             <number>90</number>
            </property>
+           <property name="alignment">
+            <set>Qt::AlignCenter</set>
+        </property>
           </widget>
          </item>
         </layout>
        </item>
        <item>
         <layout class="QHBoxLayout" name="timerLayout">
-         <property name="sizeConstraint">
-          <enum>QLayout::SizeConstraint::SetNoConstraint</enum>
-         </property>
-         <item alignment="Qt::AlignmentFlag::AlignLeft">
-          <widget class="QLabel" name="labelTimerRemaining">
-           <property name="font">
-            <font>
-             <pointsize>12</pointsize>
-            </font>
-           </property>
-           <property name="text">
-            <string>Timer</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer">
-           <property name="orientation">
-            <enum>Qt::Orientation::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
-         <item alignment="Qt::AlignmentFlag::AlignLeft">
-          <widget class="QTimeEdit" name="timeEditDuration">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Maximum" vsizetype="Fixed"/>
-           </property>
-           <property name="font">
-            <font>
-             <pointsize>12</pointsize>
-            </font>
-           </property>
-           <property name="layoutDirection">
-            <enum>Qt::LayoutDirection::LeftToRight</enum>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
-           </property>
-           <property name="displayFormat">
-            <string>mm:ss</string>
-           </property>
-           <property name="time">
-            <time>
-             <hour>0</hour>
-             <minute>0</minute>
-             <second>0</second>
-            </time>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <spacer name="horizontalSpacer">
-           <property name="orientation">
-            <enum>Qt::Orientation::Horizontal</enum>
-           </property>
-           <property name="sizeHint" stdset="0">
-            <size>
-             <width>20</width>
-             <height>20</height>
-            </size>
-           </property>
-          </spacer>
-         </item>
+  <property name="spacing">
+    <number>6</number>
+  </property>
+  <item alignment="Qt::AlignVCenter">
+    <widget class="QLabel" name="labelTimerRemaining">
+      <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
+      <property name="text">
+        <string>Timer</string>
+      </property>
+    </widget>
+  </item>
+  <item alignment="Qt::AlignVCenter">
+    <widget class="QTimeEdit" name="timeEditDuration">
+      <property name="sizePolicy">
+        <sizepolicy hsizetype="Maximum" vsizetype="Fixed"/>
+      </property>
+      <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
+      <property name="alignment">
+        <set>Qt::AlignCenter</set>
+      </property>
+      <property name="displayFormat">
+        <string>mm:ss</string>
+      </property>
+      <property name="time">
+        <time>
+          <hour>0</hour>
+          <minute>0</minute>
+          <second>0</second>
+        </time>
+      </property>
+    </widget>
+  </item>
          <item>
           <widget class="QWidget" name="speedTrainerWidget">
            <layout class="QHBoxLayout" name="speedTrainerLayout">
             <item>
-             <widget class="QCheckBox" name="checkEnableSpeedTrainer">
-              <property name="text">
-               <string>Speed</string>
-              </property>
-             </widget>
-            </item>
-            <item>
              <widget class="QLabel" name="labelBarsPerStep">
+             <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
               <property name="text">
                <string>Bars</string>
               </property>
@@ -717,6 +716,11 @@
             </item>
             <item>
              <widget class="QSpinBox" name="spinBarsPerStep">
+             <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
               <property name="minimum">
                <number>1</number>
               </property>
@@ -726,10 +730,18 @@
               <property name="value">
                <number>4</number>
               </property>
+              <property name="alignment">
+            <set>Qt::AlignCenter</set>
+            </property>
              </widget>
             </item>
             <item>
              <widget class="QLabel" name="labelTempoStep">
+             <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
               <property name="text">
                <string>BPM +</string>
               </property>
@@ -737,6 +749,11 @@
             </item>
             <item>
              <widget class="QSpinBox" name="spinTempoStep">
+             <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
               <property name="minimum">
                <number>1</number>
               </property>
@@ -746,10 +763,18 @@
               <property name="value">
                <number>2</number>
               </property>
+              <property name="alignment">
+            <set>Qt::AlignCenter</set>
+            </property>
              </widget>
             </item>
             <item>
              <widget class="QLabel" name="labelMaxTempo">
+             <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
               <property name="text">
                <string>Max BPM</string>
               </property>
@@ -757,6 +782,11 @@
             </item>
             <item>
              <widget class="QSpinBox" name="spinMaxTempo">
+             <property name="font">
+        <font>
+          <pointsize>12</pointsize>
+        </font>
+      </property>
               <property name="minimum">
                <number>20</number>
               </property>
@@ -766,6 +796,9 @@
               <property name="value">
                <number>180</number>
               </property>
+              <property name="alignment">
+            <set>Qt::AlignCenter</set>
+            </property>
              </widget>
             </item>
             <item>

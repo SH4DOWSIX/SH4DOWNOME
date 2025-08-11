@@ -37,7 +37,7 @@
     <file>eighth_eighth_eighthrest.svg</file>
     <file>eighthrest_eighth_eighthrest.svg</file>
 </qresource>
-    <qresource prefix="/themes">
+    <qresource prefix="">
         <file>../themes/dark.qss</file>
     </qresource>
 </RCC>

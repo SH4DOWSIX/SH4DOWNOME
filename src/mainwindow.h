@@ -53,7 +53,10 @@ private slots:
     void onMoveSectionDown();
     void onTapTempo();
     void onTempoSliderChanged(int value);
+
     
+    
+    void onSpeedToggle();
     
 
     
@@ -124,6 +127,7 @@ private:
     void saveUIToSection(int idx);
     QTimer* timer = nullptr;
     int timerSecondsRemaining = 0;
+    void setSpeedTrainerUIEnabled(bool enabled);
 
     int m_countInPulseIdx = 0;
 
@@ -134,6 +138,11 @@ private:
 
     void updatePolyrhythmButtonColor();
 
+    bool m_timerEnabled = false;
+    bool m_speedEnabled = false;
+    
+    void updateSpeedUI();
+
     QString m_soundSet = "Default";
     QColor m_accentColor = QColor(150,0,0);
     bool m_obsHidden = false;
@@ -143,13 +152,14 @@ private:
     QLabel* m_labelPolyrhythmDenominator = nullptr;
     QWidget* m_polyrhythmNumberWidget = nullptr;
     void updatePolyrhythmUI();
+    void updateObsWidgetPolyrhythmDisplay();
     void showPolyrhythmNumberDialog();
     void onPolyrhythmNumberClicked();
 
     bool m_alwaysOnTop = false;
 
 
-    bool m_timerEnabled = false;
+    
     void onTimerToggle();
     void updateTimerUI();
 
@@ -175,6 +185,8 @@ private:
     void handleSpeedTrainerBarEnd();
     void updateSpeedTrainerStatus();
     void resetSpeedTrainer();
+
+    void updateSectionTableEnabledState();
 
     int m_countInBeatsLeft = 0;
     int m_countInBar = 0;

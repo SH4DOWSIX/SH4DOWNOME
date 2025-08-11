@@ -34,9 +34,11 @@ void MainWindow::updatePolyrhythmButtonColor() {
     if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
         bool enabled = currentPreset.sections[currentSectionIdx].hasPolyrhythm;
         if (enabled) {
-            ui->btnPolyrhythm->setStyleSheet("background-color: #009f00; color: white;");
+            ui->btnPolyrhythm->setText("Polyrhythm");
+            ui->btnPolyrhythm->setStyleSheet("background-color: #004100; color: white;");
         } else {
-            ui->btnPolyrhythm->setStyleSheet("background-color: #9f0000; color: white;");
+            ui->btnPolyrhythm->setText("Polyrhythm");
+            ui->btnPolyrhythm->setStyleSheet("background-color: #440000; color: white;");
         }
     }
 }
@@ -139,9 +141,9 @@ connect(m_tapTempoResumeTimer, &QTimer::timeout, this, [this]() {
 });
 
 
-connect(ui->btnTimer, &QPushButton::clicked, this, &MainWindow::onTimerToggle);
+
 // Hide timer widgets at startup if not enabled
-updateTimerUI();
+
 
     const int minRows = 10;
     int rowH = ui->tableSections->verticalHeader()->defaultSectionSize();
@@ -168,8 +170,8 @@ updateTimerUI();
     clickSound.setVolume(0.9f);
 
     ui->btnStartStop->setText("Start");
-    ui->btnStartStop->setStyleSheet("background-color: green; color: white;");
-    ui->btnTimer->setText("Timer&&Speed");
+    ui->btnStartStop->setStyleSheet("background-color: #004100; color: white;");
+    
 
     accentSound.setSource(QUrl(soundFileForSet(m_soundSet, true)));
     clickSound.setSource(QUrl(soundFileForSet(m_soundSet, false)));
@@ -186,19 +188,30 @@ updateTimerUI();
     ui->spinTempo->setAlignment(Qt::AlignCenter);
     ui->timeEditDuration->setAlignment(Qt::AlignCenter);
 
+    connect(ui->btnTimer, &QPushButton::clicked, this, &MainWindow::onTimerToggle);
+    connect(ui->btnSpeed, &QPushButton::clicked, this, &MainWindow::onSpeedToggle);
+    // Set default state and update UI
+m_timerEnabled = false;
+m_speedEnabled = false;
+updateTimerUI();
+updateSpeedUI();
+
+ui->btnTimer->setMaximumWidth(47);
+ui->btnSpeed->setMaximumWidth(47);
+
 
     connect(ui->btnCountIn, &QPushButton::clicked, this, [this]() {
     m_countInEnabled = !m_countInEnabled;
     if (m_countInEnabled)
-        ui->btnCountIn->setStyleSheet("background-color: #009f00; color: white;");
+        ui->btnCountIn->setStyleSheet("background-color: #004100; color: white;");
     else
-        ui->btnCountIn->setStyleSheet("background-color: #9f0000; color: white;");
+        ui->btnCountIn->setStyleSheet("background-color: #440000; color: white;");
 });
 
-ui->btnPolyrhythm->setStyleSheet("background-color: #9f0000; color: white;");
-ui->btnTimer->setStyleSheet("background-color: #9f0000; color: white;");
+ui->btnPolyrhythm->setStyleSheet("background-color: #440000; color: white;");
+ui->btnTimer->setStyleSheet("background-color: #440000; color: white;");
 
-ui->btnCountIn->setStyleSheet("background-color: #9f0000; color: white;");
+ui->btnCountIn->setStyleSheet("background-color: #440000; color: white;");
 m_countInEnabled = false;
 
     // Remove labels from old layout
@@ -289,23 +302,7 @@ m_countInEnabled = false;
     connect(ui->spinTempoStep, QOverload<int>::of(&QSpinBox::valueChanged), this, stopOnEdit);
     connect(ui->spinMaxTempo, QOverload<int>::of(&QSpinBox::valueChanged), this, stopOnEdit);
 
-    // --- Enable/disable logic for all controls when enabled toggled ---
-    connect(ui->checkEnableSpeedTrainer, &QCheckBox::toggled, this, [this, setSpeedTrainerUIEnabled](bool enabled){
-        m_speedTrainerEnabled = enabled;
-        setSpeedTrainerUIEnabled(enabled);
-        if (metronome.isRunning())
-            onStartStop();
-    });
 
-
-connect(ui->checkEnableSpeedTrainer, &QCheckBox::toggled, this, [this](bool enabled){
-    m_speedTrainerEnabled = enabled;
-    if (!enabled) resetSpeedTrainer();
-    if (!metronome.isRunning()) {
-        ui->btnStartStop->setText("Start");
-        ui->btnStartStop->setStyleSheet("background-color: green; color: white;");
-    }
-});
 connect(ui->spinBarsPerStep, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int){
     resetSpeedTrainer();
     if (metronome.isRunning()) onStartStop();
@@ -345,7 +342,7 @@ connect(timer, &QTimer::timeout, this, [this]() {
     if (t == QTime(0, 0, 0)) {
         timer->stop();
         ui->btnStartStop->setText("Start");
-        ui->btnStartStop->setStyleSheet("background-color: green; color: white;");
+        ui->btnStartStop->setStyleSheet("background-color: #004100; color: white;");
         ui->timeEditDuration->setReadOnly(false);
         ui->timeEditDuration->setTime(m_lastEnteredTimerValue); // always restore here
         m_timerWasRunning = false;
@@ -354,7 +351,7 @@ connect(timer, &QTimer::timeout, this, [this]() {
             if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(false);
         }
         // --- Restore tempo after speed trainer ---
-        if (m_speedTrainerEnabled) {
+        if (m_speedEnabled) {
             ui->spinTempo->setValue(m_speedTrainerStartTempo);
             ui->sliderTempo->setValue(m_speedTrainerStartTempo);
             metronome.setTempo(m_speedTrainerStartTempo);
@@ -382,8 +379,8 @@ connect(timer, &QTimer::timeout, this, [this]() {
     connect(ui->btnMoveSectionDown, &QPushButton::clicked, this, &MainWindow::onMoveSectionDown);
     ui->btnMoveSectionUp->hide();
     ui->btnMoveSectionDown->hide();
-    connect(ui->tableSections, &QTableWidget::cellClicked, this, &MainWindow::onSectionSelected);
-
+    connect(ui->tableSections, &QTableWidget::currentCellChanged, this, &MainWindow::onSectionSelected);
+    
     connect(ui->tableSections, &QTableWidget::cellChanged, this, [this](int row, int col) {
         if (col == 0 && row >= 0 && row < (int)currentPreset.sections.size()) {
             QTableWidgetItem* item = ui->tableSections->item(row, 0);
@@ -395,11 +392,11 @@ connect(timer, &QTimer::timeout, this, [this]() {
         }
     });
 
-    ui->tableSections->setColumnWidth(0, 173);
+    QHeaderView* header = ui->tableSections->horizontalHeader();
     ui->tableSections->setColumnWidth(3, 50);
     ui->tableSections->setColumnWidth(1, 60);
     ui->tableSections->setColumnWidth(2, 60);
-    ui->tableSections->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+    header->setSectionResizeMode(0, QHeaderView::Stretch);  
     ui->tableSections->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
     ui->tableSections->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
     ui->tableSections->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
@@ -428,7 +425,7 @@ connect(timer, &QTimer::timeout, this, [this]() {
             }
         });
 
-    ui->btnStartStop->setStyleSheet("background-color: green; color: white;");
+    ui->btnStartStop->setStyleSheet("background-color: #004100; color: white;");
 
     if (ui->beatIndicator) {
         QLayout* layout = ui->beatIndicator->parentWidget()->layout();
@@ -500,6 +497,7 @@ connect(timer, &QTimer::timeout, this, [this]() {
         onAddSection();
     }
 }
+
 
 
 MainWindow::~MainWindow() {
@@ -605,7 +603,7 @@ void MainWindow::startCountIn()
     double quarterNoteMs = 60000.0 / ui->spinTempo->value();
     m_countInTimer->start(static_cast<int>(quarterNoteMs));
     ui->btnStartStop->setText(QString("%1/%2\nStop").arg(1).arg(currentNumerator));
-    ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+    ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
     if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(true);
 }
 
@@ -617,7 +615,7 @@ void MainWindow::onCountInTick() {
         ui->btnStartStop->setText(
             QString("%1/%2\nStop").arg(currentBeat).arg(currentNumerator)
         );
-        ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+        ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
     }
 
     m_countInBeatsRemaining--;
@@ -626,7 +624,7 @@ void MainWindow::onCountInTick() {
         ui->btnStartStop->setText(
             QString("%1/%2\nStop").arg(currentNumerator).arg(currentNumerator)
         );
-        ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+        ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
         m_countInTimer->stop();
         m_speedTrainerCountingIn = false;
 
@@ -671,7 +669,7 @@ void MainWindow::startMainMetronomeAfterCountIn() {
     if (ui->obsBeatWidget)
         ui->obsBeatWidget->setPlaying(true);
 
-    if (m_speedTrainerEnabled && !m_speedTrainerCountingIn) {
+    if (m_speedEnabled && !m_speedTrainerCountingIn) {
         // --- FIX: Set correct speed trainer start & current tempo after count-in ---
         if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
             m_speedTrainerStartTempo = currentPreset.sections[currentSectionIdx].tempo;
@@ -686,38 +684,59 @@ void MainWindow::startMainMetronomeAfterCountIn() {
         m_speedTrainerBarCounter = 0;
         m_speedTrainerFirstCycle = true;
         updateSpeedTrainerStatus();
+        updateSectionTableEnabledState();
     } else {
         // Normal mode: show Bar 1 at TEMPO on the button
-        ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+        ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
     }
 }
 
-
+void MainWindow::setSpeedTrainerUIEnabled(bool enabled) {
+    ui->spinBarsPerStep->setEnabled(enabled);
+    ui->spinTempoStep->setEnabled(enabled);
+    ui->spinMaxTempo->setEnabled(enabled);
+}
 
 void MainWindow::onTimerToggle() {
     m_timerEnabled = !m_timerEnabled;
     updateTimerUI();
-    if (!m_timerEnabled) {
-        timer->stop();
-        ui->btnStartStop->setText("Start");
-        ui->btnStartStop->setStyleSheet("background-color: green; color: white;");
-        ui->timeEditDuration->setReadOnly(false);
-        // --- Turn off speed trainer if it was on ---
-        if (ui->checkEnableSpeedTrainer->isChecked()) {
-            ui->checkEnableSpeedTrainer->setChecked(false);
-        }
-    }
 }
 
+void MainWindow::onSpeedToggle() {
+    m_speedEnabled = !m_speedEnabled;
+    updateSpeedUI();
+
+    setSpeedTrainerUIEnabled(m_speedEnabled);
+
+    if (!m_speedEnabled) {
+        resetSpeedTrainer();
+    }
+
+    if (metronome.isRunning()) {
+        onStartStop();
+    } else if (!m_speedEnabled) {
+        // Only reset the Start/Stop button if we're disabling and not running
+        ui->btnStartStop->setText("Start");
+        ui->btnStartStop->setStyleSheet("background-color: #004100; color: white;");
+    }
+
+    updateSectionTableEnabledState();
+}
 void MainWindow::updateTimerUI() {
     ui->btnTimer->setStyleSheet(
-        m_timerEnabled ? "background-color: #009f00; color: white;"
-                       : "background-color: #9f0000; color: white;");
+        m_timerEnabled ? "background-color: #004100; color: white;"
+                       : "background-color: #440000; color: white;");
     ui->timeEditDuration->setVisible(m_timerEnabled);
     ui->labelTimerRemaining->setVisible(m_timerEnabled);
-    ui->speedTrainerWidget->setVisible(m_timerEnabled);
     
     
+}
+
+void MainWindow::updateSpeedUI() {
+    ui->btnSpeed->setStyleSheet(
+        m_speedEnabled ? "background-color: #004100; color: white;"
+                       : "background-color: #440000; color: white;");
+    ui->speedTrainerWidget->setVisible(m_speedEnabled);
 }
 
 
@@ -726,7 +745,7 @@ void MainWindow::onStartStop() {
     m_speedTrainerBarsPerStep = ui->spinBarsPerStep->value();
     m_speedTrainerTempoStep   = ui->spinTempoStep->value();
     m_speedTrainerMaxTempo    = ui->spinMaxTempo->value();
-    saveUIToSection(currentSectionIdx, true);
+    
 
     // STOP LOGIC
 if (metronome.isRunning() || m_speedTrainerCountingIn) {
@@ -737,7 +756,7 @@ if (metronome.isRunning() || m_speedTrainerCountingIn) {
     m_speedTrainerBarCounter = 0;
     m_playingBarCounter = 0;
     ui->btnStartStop->setText("Start");
-    ui->btnStartStop->setStyleSheet("background-color: green; color: white;");
+    ui->btnStartStop->setStyleSheet("background-color: #004100; color: white;");
     timer->stop();
     if (m_countInTimer && m_countInTimer->isActive()) m_countInTimer->stop();
     ui->timeEditDuration->setReadOnly(false);
@@ -748,67 +767,75 @@ if (metronome.isRunning() || m_speedTrainerCountingIn) {
     m_countInBar = 0;
     m_countInBarTotal = 1;
     m_switchSubdivisionAfterCountIn = false;
-    if (m_speedTrainerEnabled) {
-        // Restore to the original tempo at speed trainer start, not current section tempo
-        int restoreTempo = m_speedTrainerStartTempo;
-        ui->spinTempo->setValue(restoreTempo);
-        ui->sliderTempo->setValue(restoreTempo);
-        metronome.setTempo(restoreTempo);
-        if (ui->obsBeatWidget)
-            ui->obsBeatWidget->setTempo(restoreTempo);
-    }
+    if (m_speedEnabled && currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
+    int restoreTempo = currentPreset.sections[currentSectionIdx].tempo;
+    m_speedTrainerStartTempo = restoreTempo;
+    m_speedTrainerCurrentTempo = restoreTempo;
+    ui->spinTempo->setValue(restoreTempo);
+    ui->sliderTempo->setValue(restoreTempo);
+    metronome.setTempo(restoreTempo);
+    if (ui->obsBeatWidget)
+        ui->obsBeatWidget->setTempo(restoreTempo);
+}
+    updateSectionTableEnabledState();
     return;
 }
 
     // --- If timer is set, start it (move this BEFORE all return statements) ---
     QTime t = ui->timeEditDuration->time();
-if (m_timerEnabled && t != QTime(0, 0, 0)) {
-    m_lastEnteredTimerValue = t;
-    timer->start();
-    ui->timeEditDuration->setReadOnly(true);
-    m_timerWasRunning = true;
-} else {
-    m_timerWasRunning = false;
-}
+    if (m_timerEnabled && t != QTime(0, 0, 0)) {
+        m_lastEnteredTimerValue = t;
+        timer->start();
+        ui->timeEditDuration->setReadOnly(true);
+        m_timerWasRunning = true;
+    } else {
+        m_timerWasRunning = false;
+    }
 
-    // START LOGIC
+    // --- PROACTIVELY DISABLE TABLE BEFORE STARTING COUNT-IN OR METRONOME ---
+    if (m_speedEnabled) {
+        ui->tableSections->setEnabled(false);
+    }
 
     // --- If count-in is enabled, always do count-in first ---
     if (m_countInEnabled) {
         m_speedTrainerCountingIn = true;
         startCountIn();
+        // Section table stays disabled through count-in
+        updateSectionTableEnabledState();
         return;
     }
 
     // --- If Speed Trainer is enabled, use speed trainer params ---
-if (ui->checkEnableSpeedTrainer->isChecked()) {
-    m_speedTrainerBarsPerStep = ui->spinBarsPerStep->value();
-    m_speedTrainerTempoStep = ui->spinTempoStep->value();
-    m_speedTrainerMaxTempo = ui->spinMaxTempo->value();
-    m_speedTrainerCountInBeats = currentNumerator;
-    m_speedTrainerCurrentBar = 1;
-    m_speedTrainerBarCounter = 0;
-    // --- PATCH START: Always set start tempo from section, not just UI ---
-    if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
-        m_speedTrainerStartTempo = currentPreset.sections[currentSectionIdx].tempo;
+    if (m_speedEnabled) {
+        m_speedTrainerBarsPerStep = ui->spinBarsPerStep->value();
+        m_speedTrainerTempoStep = ui->spinTempoStep->value();
+        m_speedTrainerMaxTempo = ui->spinMaxTempo->value();
+        m_speedTrainerCountInBeats = currentNumerator;
+        m_speedTrainerCurrentBar = 1;
+        m_speedTrainerBarCounter = 0;
+        // --- PATCH START: Always set start tempo from section, not just UI ---
+        if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
+            m_speedTrainerStartTempo = currentPreset.sections[currentSectionIdx].tempo;
+            ui->spinTempo->setValue(m_speedTrainerStartTempo);
+        } else {
+            m_speedTrainerStartTempo = ui->spinTempo->value();
+        }
+        // --- PATCH END ---
+        m_speedTrainerCurrentTempo = m_speedTrainerStartTempo;
+        m_speedTrainerPolyrhythm = metronome.isPolyrhythmEnabled();
+        m_speedTrainerFirstCycle = true;
         ui->spinTempo->setValue(m_speedTrainerStartTempo);
-    } else {
-        m_speedTrainerStartTempo = ui->spinTempo->value();
+        metronome.setTempo(m_speedTrainerStartTempo);
+        ui->btnStartStop->setText("Stop");
+        ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
+        metronome.start();
+        if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(true);
+        m_countInBar = 0;
+        m_countInBarTotal = 1;
+        updateSectionTableEnabledState(); // Defensive, but table should already be disabled
+        return;
     }
-    // --- PATCH END ---
-    m_speedTrainerCurrentTempo = m_speedTrainerStartTempo;
-    m_speedTrainerPolyrhythm = metronome.isPolyrhythmEnabled();
-    m_speedTrainerFirstCycle = true;
-    ui->spinTempo->setValue(m_speedTrainerStartTempo);
-    metronome.setTempo(m_speedTrainerStartTempo);
-    ui->btnStartStop->setText("Stop");
-    ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
-    metronome.start();
-    if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(true);
-    m_countInBar = 0;
-    m_countInBarTotal = 1;
-    return;
-}
 
     // --- Otherwise, just start the metronome normally ---
     m_playingBarCounter = 0;
@@ -817,11 +844,12 @@ if (ui->checkEnableSpeedTrainer->isChecked()) {
             .arg(m_playingBarCounter)
             .arg(currentNumerator)
     );
-    ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+    ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
     metronome.start();
     if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(true);
     m_countInBar = 0;
     m_countInBarTotal = 1;
+    updateSectionTableEnabledState();
 }
 
 
@@ -832,7 +860,7 @@ void MainWindow::startSpeedTrainerMain() {
     m_speedTrainerBarCounter = 0;
     m_speedTrainerCurrentTempo = m_speedTrainerStartTempo;
     ui->btnStartStop->setText("Stop");
-    ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+    ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
     updateSpeedTrainerStatus();
     metronome.setTempo(m_speedTrainerCurrentTempo);
     metronome.start();
@@ -951,6 +979,7 @@ void MainWindow::onSubdivisionChanged(int index) {
         ui->obsBeatWidget->setSubdivisionImagePath(subdivisionImagePathFromIndex(index));
 
     m_beatIndicatorWidget->setMode(BeatIndicatorMode::Circles);
+    updateObsWidgetPolyrhythmDisplay();
 }
 
 void MainWindow::updateSubPolyCell(int sectionIdx) {
@@ -1195,7 +1224,7 @@ void MainWindow::updateSpeedTrainerStatus() {
             .arg(m_speedTrainerBarsPerStep)
             
     );
-    ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+    ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
 }
 
 // --- Reset Speed Trainer state when stopped or parameters changed ---
@@ -1219,7 +1248,7 @@ void MainWindow::onMetronomePulse(int idx, bool accent, bool polyAccent, bool is
     int pulsesPerBar = subdivisions * numerator;
 
     // Speed Trainer logic
-    if (m_speedTrainerEnabled && !m_speedTrainerCountingIn && metronome.isRunning()) {
+    if (m_speedEnabled && !m_speedTrainerCountingIn && metronome.isRunning()) {
         if (metronome.isPolyrhythmEnabled()) {
             Polyrhythm poly = metronome.getPolyrhythm();
             int lastMainBeatIdx = poly.primaryBeats > 0 ? poly.primaryBeats - 1 : 0;
@@ -1237,7 +1266,7 @@ void MainWindow::onMetronomePulse(int idx, bool accent, bool polyAccent, bool is
     }
 
     // --- Normal play: update bar counter & button ---
-if (!m_speedTrainerEnabled && metronome.isRunning()) {
+if (!m_speedEnabled && metronome.isRunning()) {
     if ((idx % pulsesPerBar) == 0) {
         m_playingBarCounter++;
         if (m_playingBarCounter > currentNumerator)
@@ -1248,7 +1277,7 @@ if (!m_speedTrainerEnabled && metronome.isRunning()) {
                 .arg(currentNumerator)
                 
         );
-        ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+        ui->btnStartStop->setStyleSheet("background-color: #440000; color: white;");
     }
 }
 
@@ -1503,7 +1532,15 @@ void MainWindow::onDeletePreset() {
     }
 }
 
-void MainWindow::onSectionSelected(int row, int) {
+void MainWindow::onSectionSelected(int row, int col) {
+    if (!ui->tableSections->isEnabled()) {
+        // Force selection back to the previous section
+        QSignalBlocker blocker(ui->tableSections);
+        ui->tableSections->setCurrentCell(currentSectionIdx, 0);
+        ui->tableSections->selectRow(currentSectionIdx);
+        return;
+    }
+
     saveUIToSection(currentSectionIdx, true);
     if (row < 0 || row >= (int)currentPreset.sections.size()) return;
     loadSectionToUI(row);
@@ -1511,6 +1548,11 @@ void MainWindow::onSectionSelected(int row, int) {
         metronome.stop();
         metronome.start();
     }
+}
+
+void MainWindow::updateSectionTableEnabledState() {
+    bool allowSectionSwitch = !(m_speedEnabled && (metronome.isRunning() || m_speedTrainerCountingIn));
+    ui->tableSections->setEnabled(allowSectionSwitch);
 }
 
 void MainWindow::onRemoveSection() {
@@ -1657,6 +1699,7 @@ void MainWindow::loadSectionToUI(int idx) {
     // --- Update polyrhythm button color! ---
     updatePolyrhythmButtonColor();
     updatePolyrhythmUI();
+    updateObsWidgetPolyrhythmDisplay();
 }
 
 void MainWindow::saveUIToSection(int idx, bool doAutosave) {
@@ -1850,6 +1893,7 @@ void MainWindow::onPolyrhythmClicked() {
     saveUIToSection(currentSectionIdx, true);
     updatePolyrhythmButtonColor();
     updatePolyrhythmUI();
+    updateObsWidgetPolyrhythmDisplay();
     updateSubPolyCell(currentSectionIdx);
 
     // --- Update beat indicator immediately ---
@@ -1888,6 +1932,7 @@ void MainWindow::showPolyrhythmNumberDialog() {
         metronome.setPolyrhythm(pb, sb);
         saveUIToSection(currentSectionIdx, true);
         updatePolyrhythmUI();
+        updateObsWidgetPolyrhythmDisplay();
         updateSubPolyCell(currentSectionIdx);
 
         // --- Update beat indicator immediately ---
@@ -1912,6 +1957,28 @@ void MainWindow::showPolyrhythmNumberDialog() {
             metronome.stop();
             metronome.start();
         }
+    }
+}
+
+void MainWindow::updateObsWidgetPolyrhythmDisplay()
+{
+    if (!ui->obsBeatWidget)
+        return;
+
+    bool isPoly = false;
+    int mainBeats = 0, polyBeats = 0;
+    if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size())
+    {
+        const auto& s = currentPreset.sections[currentSectionIdx];
+        isPoly = s.hasPolyrhythm;
+        mainBeats = s.polyrhythm.primaryBeats;
+        polyBeats = s.polyrhythm.secondaryBeats;
+    }
+    if (metronome.isPolyrhythmEnabled() && isPoly) {
+        ui->obsBeatWidget->setPolyrhythmMode(true, mainBeats, polyBeats);
+    } else {
+        ui->obsBeatWidget->setPolyrhythmMode(false);
+        ui->obsBeatWidget->setSubdivisionImagePath(subdivisionImagePathFromIndex(getCurrentSubdivisionIndex()));
     }
 }
 
