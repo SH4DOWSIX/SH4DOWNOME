@@ -771,7 +771,7 @@
             <item>
              <widget class="QLabel" name="labelSpeedTrainerStatus">
               <property name="text">
-               <string>Bar 1/4 at 120 BPM</string>
+               <string>Bar 1/4 at 100 BPM</string>
               </property>
              </widget>
             </item>

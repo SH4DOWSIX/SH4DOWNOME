@@ -672,12 +672,22 @@ void MainWindow::startMainMetronomeAfterCountIn() {
         ui->obsBeatWidget->setPlaying(true);
 
     if (m_speedTrainerEnabled && !m_speedTrainerCountingIn) {
+        // --- FIX: Set correct speed trainer start & current tempo after count-in ---
+        if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
+            m_speedTrainerStartTempo = currentPreset.sections[currentSectionIdx].tempo;
+        } else {
+            m_speedTrainerStartTempo = ui->spinTempo->value();
+        }
+        m_speedTrainerCurrentTempo = m_speedTrainerStartTempo;
+        metronome.setTempo(m_speedTrainerCurrentTempo);
+        ui->spinTempo->setValue(m_speedTrainerCurrentTempo);
+        ui->sliderTempo->setValue(m_speedTrainerCurrentTempo);
+
         m_speedTrainerBarCounter = 0;
         m_speedTrainerFirstCycle = true;
         updateSpeedTrainerStatus();
     } else {
         // Normal mode: show Bar 1 at TEMPO on the button
-        
         ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
     }
 }
@@ -716,34 +726,39 @@ void MainWindow::onStartStop() {
     m_speedTrainerBarsPerStep = ui->spinBarsPerStep->value();
     m_speedTrainerTempoStep   = ui->spinTempoStep->value();
     m_speedTrainerMaxTempo    = ui->spinMaxTempo->value();
+    saveUIToSection(currentSectionIdx, true);
 
     // STOP LOGIC
-    if (metronome.isRunning() || m_speedTrainerCountingIn) {
-        m_countInBeatsLeft = 0;
-        m_speedTrainerCountingIn = false;
-        m_speedTrainerCurrentBar = 1;
-        m_speedTrainerCurrentTempo = m_speedTrainerStartTempo;
-        m_speedTrainerBarCounter = 0;
-        m_playingBarCounter = 0;
-        ui->btnStartStop->setText("Start");
-        ui->btnStartStop->setStyleSheet("background-color: green; color: white;");
-        timer->stop();
-        if (m_countInTimer && m_countInTimer->isActive()) m_countInTimer->stop();
-        ui->timeEditDuration->setReadOnly(false);
-        if (m_timerWasRunning) ui->timeEditDuration->setTime(m_lastEnteredTimerValue);
-        m_timerWasRunning = false;
-        metronome.stop();
-        if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(false);
-        m_countInBar = 0;
-        m_countInBarTotal = 1;
-        m_switchSubdivisionAfterCountIn = false;
-        ui->spinTempo->setValue(m_speedTrainerStartTempo);
-        ui->sliderTempo->setValue(m_speedTrainerStartTempo);
-        metronome.setTempo(m_speedTrainerStartTempo);
+if (metronome.isRunning() || m_speedTrainerCountingIn) {
+    m_countInBeatsLeft = 0;
+    m_speedTrainerCountingIn = false;
+    m_speedTrainerCurrentBar = 1;
+    m_speedTrainerCurrentTempo = m_speedTrainerStartTempo;
+    m_speedTrainerBarCounter = 0;
+    m_playingBarCounter = 0;
+    ui->btnStartStop->setText("Start");
+    ui->btnStartStop->setStyleSheet("background-color: green; color: white;");
+    timer->stop();
+    if (m_countInTimer && m_countInTimer->isActive()) m_countInTimer->stop();
+    ui->timeEditDuration->setReadOnly(false);
+    if (m_timerWasRunning) ui->timeEditDuration->setTime(m_lastEnteredTimerValue);
+    m_timerWasRunning = false;
+    metronome.stop();
+    if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(false);
+    m_countInBar = 0;
+    m_countInBarTotal = 1;
+    m_switchSubdivisionAfterCountIn = false;
+    if (m_speedTrainerEnabled) {
+        // Restore to the original tempo at speed trainer start, not current section tempo
+        int restoreTempo = m_speedTrainerStartTempo;
+        ui->spinTempo->setValue(restoreTempo);
+        ui->sliderTempo->setValue(restoreTempo);
+        metronome.setTempo(restoreTempo);
         if (ui->obsBeatWidget)
-            ui->obsBeatWidget->setTempo(m_speedTrainerStartTempo);
-        return;
+            ui->obsBeatWidget->setTempo(restoreTempo);
     }
+    return;
+}
 
     // --- If timer is set, start it (move this BEFORE all return statements) ---
     QTime t = ui->timeEditDuration->time();
@@ -766,27 +781,34 @@ if (m_timerEnabled && t != QTime(0, 0, 0)) {
     }
 
     // --- If Speed Trainer is enabled, use speed trainer params ---
-    if (ui->checkEnableSpeedTrainer->isChecked()) {
-        m_speedTrainerBarsPerStep = ui->spinBarsPerStep->value();
-        m_speedTrainerTempoStep = ui->spinTempoStep->value();
-        m_speedTrainerMaxTempo = ui->spinMaxTempo->value();
-        m_speedTrainerCountInBeats = currentNumerator;
-        m_speedTrainerCurrentBar = 1;
-        m_speedTrainerBarCounter = 0;
-        m_speedTrainerStartTempo = ui->spinTempo->value();
-        m_speedTrainerCurrentTempo = m_speedTrainerStartTempo;
-        m_speedTrainerPolyrhythm = metronome.isPolyrhythmEnabled();
-        m_speedTrainerFirstCycle = true;
+if (ui->checkEnableSpeedTrainer->isChecked()) {
+    m_speedTrainerBarsPerStep = ui->spinBarsPerStep->value();
+    m_speedTrainerTempoStep = ui->spinTempoStep->value();
+    m_speedTrainerMaxTempo = ui->spinMaxTempo->value();
+    m_speedTrainerCountInBeats = currentNumerator;
+    m_speedTrainerCurrentBar = 1;
+    m_speedTrainerBarCounter = 0;
+    // --- PATCH START: Always set start tempo from section, not just UI ---
+    if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
+        m_speedTrainerStartTempo = currentPreset.sections[currentSectionIdx].tempo;
         ui->spinTempo->setValue(m_speedTrainerStartTempo);
-        metronome.setTempo(m_speedTrainerStartTempo);
-        ui->btnStartStop->setText("Stop");
-        ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
-        metronome.start();
-        if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(true);
-        m_countInBar = 0;
-        m_countInBarTotal = 1;
-        return;
+    } else {
+        m_speedTrainerStartTempo = ui->spinTempo->value();
     }
+    // --- PATCH END ---
+    m_speedTrainerCurrentTempo = m_speedTrainerStartTempo;
+    m_speedTrainerPolyrhythm = metronome.isPolyrhythmEnabled();
+    m_speedTrainerFirstCycle = true;
+    ui->spinTempo->setValue(m_speedTrainerStartTempo);
+    metronome.setTempo(m_speedTrainerStartTempo);
+    ui->btnStartStop->setText("Stop");
+    ui->btnStartStop->setStyleSheet("background-color: #9f0000; color: white;");
+    metronome.start();
+    if (ui->obsBeatWidget) ui->obsBeatWidget->setPlaying(true);
+    m_countInBar = 0;
+    m_countInBarTotal = 1;
+    return;
+}
 
     // --- Otherwise, just start the metronome normally ---
     m_playingBarCounter = 0;
