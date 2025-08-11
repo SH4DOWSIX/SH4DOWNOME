@@ -19,26 +19,45 @@
      <widget class="QWidget" name="contentContainer">
       <layout class="QVBoxLayout" name="contentLayout">
        <item>
+        <!-- Updated presetLayout section for smaller buttons and expanding combo box -->
         <layout class="QHBoxLayout" name="presetLayout">
          <item>
           <widget class="QPushButton" name="btnSavePreset">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>80</width>
+             <height>0</height>
+            </size>
+           </property>
            <property name="text">
             <string>New Piece</string>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QComboBox" name="comboPresets"/>
-         </item>
-         <item>
-          <widget class="QPushButton" name="btnLoadPreset">
-           <property name="text">
-            <string>Load Song</string>
+          <widget class="QComboBox" name="comboPresets">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed"/>
+           </property>
+           <property name="minimumContentsLength">
+            <number>10</number>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QPushButton" name="btnRenamePreset">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>80</width>
+             <height>0</height>
+            </size>
+           </property>
            <property name="text">
             <string>Rename Piece</string>
            </property>
@@ -48,6 +67,15 @@
           <widget class="QPushButton" name="btnDeletePreset">
            <property name="toolTip">
             <string>Delete the selected song/preset</string>
+           </property>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>80</width>
+             <height>0</height>
+            </size>
            </property>
            <property name="text">
             <string>Delete Piece</string>
@@ -141,33 +169,45 @@
              </property>
             </widget>
            </item>
-           <!-- ADD POLYRHYTHM BUTTON HERE -->
+           <item>
+            <widget class="QPushButton" name="btnCountIn">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
+             </property>
+             <property name="text">
+              <string>Count In</string>
+             </property>
+             <property name="toolTip">
+              <string>Enable/disable count-in before playing</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QPushButton" name="btnPolyrhythm">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
              </property>
              <property name="text">
-              <string>Polyrhythms</string>
+              <string>Sub or Poly</string>
              </property>
              <property name="toolTip">
-              <string>Configure polyrhythm for this section</string>
+              <string>Configure Subdivisions or Polyrhythms for this section</string>
              </property>
             </widget>
            </item>
            <item>
- <widget class="QPushButton" name="btnTimer">
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
-  </property>
-  <property name="text">
-   <string>Timer</string>
-  </property>
-  <property name="toolTip">
-   <string>Enable/disable timer mode</string>
-  </property>
- </widget>
-</item>
+            <widget class="QPushButton" name="btnTimer">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Minimum" vsizetype="Fixed"/>
+             </property>
+             <property name="text">
+              <string>Timer Speed</string>
+             </property>
+             <property name="toolTip">
+              <string>Show the timer and speed modes</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QPushButton" name="btnTapTempo">
              <property name="sizePolicy">
@@ -204,11 +244,28 @@
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QPushButton" name="btnStartStop">
+             <property name="minimumSize">
+              <size>
+               <width>100</width>
+               <height>60</height>
+              </size>
+             </property>
+             <property name="font">
+              <font>
+               <pointsize>12</pointsize>
+              </font>
+             </property>
+             <property name="text">
+              <string>Start</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </item>
         </layout>
        </item>
-       <!-- NEW: Add a QWidget container for tempoLayout! -->
        <item>
         <widget class="QWidget" name="tempoRowWidget">
          <property name="sizePolicy">
@@ -576,88 +633,149 @@
           <enum>QLayout::SizeConstraint::SetNoConstraint</enum>
          </property>
          <item alignment="Qt::AlignmentFlag::AlignLeft">
-  <widget class="QLabel" name="labelTimerRemaining">
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="text">
-    <string>Time remaining: 00:00</string>
-   </property>
-  </widget>
- </item>
- <!-- SECOND: timeEditDuration -->
-  <item>
-  <spacer name="horizontalSpacer">
-   <property name="orientation">
-    <enum>Qt::Orientation::Horizontal</enum>
-   </property>
-   <property name="sizeHint" stdset="0">
-    <size>
-     <width>120</width>
-     <height>20</height>
-    </size>
-   </property>
-  </spacer>
- </item>
- <item alignment="Qt::AlignmentFlag::AlignLeft">
-  <widget class="QTimeEdit" name="timeEditDuration">
-   <property name="sizePolicy">
-    <sizepolicy hsizetype="Maximum" vsizetype="Fixed"/>
-   </property>
-   <property name="font">
-    <font>
-     <pointsize>12</pointsize>
-    </font>
-   </property>
-   <property name="layoutDirection">
-    <enum>Qt::LayoutDirection::LeftToRight</enum>
-   </property>
-   <property name="alignment">
-    <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
-   </property>
-   <property name="displayFormat">
-    <string>mm:ss</string>
-   </property>
-   <property name="time">
-    <time>
-     <hour>0</hour>
-     <minute>0</minute>
-     <second>0</second>
-    </time>
-   </property>
-  </widget>
- </item>
- <item>
-  <spacer name="horizontalSpacer">
-   <property name="orientation">
-    <enum>Qt::Orientation::Horizontal</enum>
-   </property>
-   <property name="sizeHint" stdset="0">
-    <size>
-     <width>20</width>
-     <height>20</height>
-    </size>
-   </property>
-  </spacer>
- </item>
-         <item alignment="Qt::AlignmentFlag::AlignRight">
-          <widget class="QPushButton" name="btnStartStop">
-           <property name="minimumSize">
-            <size>
-             <width>100</width>
-             <height>60</height>
-            </size>
-           </property>
+          <widget class="QLabel" name="labelTimerRemaining">
            <property name="font">
             <font>
              <pointsize>12</pointsize>
             </font>
            </property>
            <property name="text">
-            <string>Start</string>
+            <string>Timer</string>
            </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item alignment="Qt::AlignmentFlag::AlignLeft">
+          <widget class="QTimeEdit" name="timeEditDuration">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Maximum" vsizetype="Fixed"/>
+           </property>
+           <property name="font">
+            <font>
+             <pointsize>12</pointsize>
+            </font>
+           </property>
+           <property name="layoutDirection">
+            <enum>Qt::LayoutDirection::LeftToRight</enum>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
+           </property>
+           <property name="displayFormat">
+            <string>mm:ss</string>
+           </property>
+           <property name="time">
+            <time>
+             <hour>0</hour>
+             <minute>0</minute>
+             <second>0</second>
+            </time>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QWidget" name="speedTrainerWidget">
+           <layout class="QHBoxLayout" name="speedTrainerLayout">
+            <item>
+             <widget class="QCheckBox" name="checkEnableSpeedTrainer">
+              <property name="text">
+               <string>Speed</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelBarsPerStep">
+              <property name="text">
+               <string>Bars</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="spinBarsPerStep">
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="maximum">
+               <number>100</number>
+              </property>
+              <property name="value">
+               <number>4</number>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelTempoStep">
+              <property name="text">
+               <string>BPM +</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="spinTempoStep">
+              <property name="minimum">
+               <number>1</number>
+              </property>
+              <property name="maximum">
+               <number>50</number>
+              </property>
+              <property name="value">
+               <number>2</number>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelMaxTempo">
+              <property name="text">
+               <string>Max BPM</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="spinMaxTempo">
+              <property name="minimum">
+               <number>20</number>
+              </property>
+              <property name="maximum">
+               <number>300</number>
+              </property>
+              <property name="value">
+               <number>180</number>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="labelSpeedTrainerStatus">
+              <property name="text">
+               <string>Bar 1/4 at 120 BPM</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </widget>
          </item>
         </layout>

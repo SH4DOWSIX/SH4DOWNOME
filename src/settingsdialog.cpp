@@ -31,6 +31,10 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     connect(colorButton, &QPushButton::clicked, this, &SettingsDialog::onPickColor);
     layout->addWidget(colorButton);
 
+    // Always On Top checkbox (NEW, placed above Hide OBS Widget)
+    alwaysOnTopCheck = new QCheckBox("Always on top", this);
+    layout->addWidget(alwaysOnTopCheck);
+
     hideObsCheck = new QCheckBox("Hide OBS Widget", this);
     layout->addWidget(hideObsCheck);
 
@@ -55,6 +59,11 @@ bool SettingsDialog::obsWidgetHidden() const
     return hideObsCheck->isChecked();
 }
 
+bool SettingsDialog::alwaysOnTop() const
+{
+    return alwaysOnTopCheck->isChecked();
+}
+
 void SettingsDialog::setSelectedSoundSet(const QString& sound)
 {
     int idx = soundCombo->findText(sound);
@@ -75,6 +84,11 @@ void SettingsDialog::setSelectedAccentColor(const QColor& color)
 void SettingsDialog::setObsWidgetHidden(bool hide)
 {
     hideObsCheck->setChecked(hide);
+}
+
+void SettingsDialog::setAlwaysOnTop(bool onTop)
+{
+    alwaysOnTopCheck->setChecked(onTop);
 }
 
 void SettingsDialog::onPickColor()

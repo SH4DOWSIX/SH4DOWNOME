@@ -16,10 +16,12 @@ public:
     QString selectedSoundSet() const;
     QColor selectedAccentColor() const;
     bool obsWidgetHidden() const;
+    bool alwaysOnTop() const;
 
     void setSelectedSoundSet(const QString& sound);
     void setSelectedAccentColor(const QColor& color);
     void setObsWidgetHidden(bool hide);
+    void setAlwaysOnTop(bool onTop);
 
 private slots:
     void onPickColor();
@@ -29,4 +31,5 @@ private:
     QPushButton* colorButton;
     QColor accentColor;
     QCheckBox* hideObsCheck;
+    QCheckBox* alwaysOnTopCheck;
 };

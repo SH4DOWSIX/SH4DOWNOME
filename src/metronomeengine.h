@@ -25,9 +25,11 @@ struct Polyrhythm {
     int secondaryBeats = 2;
 };
 
+// Updated PolyEvent struct to include the grid column
 struct PolyEvent {
     double timeMs;
-    int type; // 0 = main, 1 = poly
+    int type; // 0 = main, 1 = poly, 2 = both
+    int gridCol; // grid column index for visual highlight
 };
 
 class MetronomeEngine : public QObject
@@ -35,6 +37,10 @@ class MetronomeEngine : public QObject
     Q_OBJECT
 public:
     explicit MetronomeEngine(QObject *parent = nullptr);
+
+    void setPulseIdx(int idx) { pulseIdx = idx; }
+
+    int currentTempo() const { return tempoBpm; }
 
     void setTempo(int bpm);
     void setTimeSignature(int num, int denom);
@@ -51,8 +57,17 @@ public:
     bool isPolyrhythmEnabled() const { return polyrhythmEnabled; }
     Polyrhythm getPolyrhythm() const { return polyrhythm; }
 
+    void startPolyrhythmBar(bool newBar);
+    double pulseIntervalMs(int pulseInPattern) const;
+
+    int pulsesPerBar() const;
+
+    // New: Arm a tempo to be applied at the next bar
+    void armTempo(int t) { armedTempo = t; }
+
 signals:
-    void pulse(int eventIdx, bool accent, bool polyAccent, bool isMainBeat);
+    // Now passes gridColumn for visual highlight
+    void pulse(int eventIdx, bool accent, bool polyAccent, bool isMainBeat, bool playPulse, int gridColumn);
 
 protected:
     void timerEvent(QTimerEvent *event) override;
@@ -69,6 +84,9 @@ private:
     int pulseIdx = 0;
     int patternStep = 0;
     bool running = false;
+    int mainBeatInBar = 0;
+
+    int armedTempo = -1;
 
     NoteValue subdivision = NoteValue::Quarter;
     std::vector<bool> accentPattern;
@@ -82,12 +100,10 @@ private:
     // --- Polyrhythm event scheduling ---
     std::vector<PolyEvent> scheduledEvents;
     int schedIdx = 0;
-    void startPolyrhythmBar(bool newBar);
+    
     void scheduleNextPolyrhythmPulse();
     void handlePolyrhythmPulse();
 
     // --- Standard metronome logic ---
-    int pulsesPerBar() const;
-    double pulseIntervalMs(int pulseInPattern) const;
     bool isMainBeat(int pulseIdx) const;
 };

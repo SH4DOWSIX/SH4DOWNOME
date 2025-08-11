@@ -4,6 +4,18 @@
 #include <cmath>
 #include <QDebug>
 
+// Local lcm helper
+static int lcm(int a, int b) {
+    if (a == 0 || b == 0) return 0;
+    int x = a, y = b;
+    while (y != 0) {
+        int t = y;
+        y = x % y;
+        x = t;
+    }
+    return (a / x) * b;
+}
+
 static bool isClose(double a, double b, double tol = 2.0) {
     return std::abs(a - b) < tol;
 }
@@ -16,12 +28,10 @@ MetronomeEngine::MetronomeEngine(QObject *parent)
 
 void MetronomeEngine::setTempo(int bpm) {
     tempoBpm = bpm;
-    if (running) {
+    barMs = numerator * (60000.0 / tempoBpm); // Update for next bar!
+    if (running && !polyrhythmEnabled) {
         timer.stop();
-        if (polyrhythmEnabled)
-            startPolyrhythmBar(true);
-        else
-            timer.start(static_cast<int>(pulseIntervalMs(patternStep)));
+        timer.start(static_cast<int>(pulseIntervalMs(patternStep)));
     }
 }
 
@@ -99,42 +109,58 @@ bool MetronomeEngine::isAccent(int beatIdx) const {
 // --- Polyrhythm event-driven scheduling ---
 
 void MetronomeEngine::startPolyrhythmBar(bool newBar) {
+    // Save the current bar duration BEFORE any tempo change
+    double oldBarMs = barMs;
+
+    // Apply armed tempo BEFORE scheduling events for this bar
+    if (armedTempo > 0) {
+        setTempo(armedTempo);
+        armedTempo = -1;
+    }
+
     if (!running) return;
     if (tempoBpm <= 0 || numerator <= 0 || polyrhythm.primaryBeats <= 0 || polyrhythm.secondaryBeats <= 0)
         return;
 
+    schedIdx = 0;
+    mainBeatInBar = 0;
+
     double quarterNoteMs = 60000.0 / tempoBpm;
     barMs = numerator * quarterNoteMs;
 
-    // Generate all pulses for both rhythms
-    std::vector<std::pair<double, int>> rawEvents;
+    // --- THE CORRECT RHYTHMIC SCHEDULING WITH GRID COLUMN ALIGNMENT ---
+    int columns = lcm(polyrhythm.primaryBeats, polyrhythm.secondaryBeats);
+    // Schedule only actual musical events, but record grid column for each
+    std::vector<std::tuple<double, int, int>> rawEvents; // (time, type, gridCol)
     for (int i = 0; i < polyrhythm.primaryBeats; ++i) {
         double t = (i * barMs) / polyrhythm.primaryBeats;
-        rawEvents.push_back({t, 0});
+        int col = (i * columns) / polyrhythm.primaryBeats;
+        rawEvents.push_back({t, 0, col});
     }
     for (int i = 0; i < polyrhythm.secondaryBeats; ++i) {
         double t = (i * barMs) / polyrhythm.secondaryBeats;
-        rawEvents.push_back({t, 1});
+        int col = (i * columns) / polyrhythm.secondaryBeats;
+        rawEvents.push_back({t, 1, col});
     }
     std::sort(rawEvents.begin(), rawEvents.end(),
-              [](const std::pair<double, int>& a, const std::pair<double, int>& b) { return a.first < b.first; });
+              [](const std::tuple<double, int, int>& a, const std::tuple<double, int, int>& b) { return std::get<0>(a) < std::get<0>(b); });
 
-    // Merge coinciding pulses (within mergeThreshold ms)
+    // Merge coincident pulses (within mergeThreshold ms)
     constexpr double mergeThreshold = 2.0;
     scheduledEvents.clear();
     size_t idx = 0;
     while (idx < rawEvents.size()) {
-        double t = rawEvents[idx].first;
+        double t = std::get<0>(rawEvents[idx]);
+        int col = std::get<2>(rawEvents[idx]);
         bool isMain = false, isPoly = false;
         size_t j = idx;
-        while (j < rawEvents.size() && std::abs(rawEvents[j].first - t) < mergeThreshold) {
-            if (rawEvents[j].second == 0) isMain = true;
-            if (rawEvents[j].second == 1) isPoly = true;
+        while (j < rawEvents.size() && std::abs(std::get<0>(rawEvents[j]) - t) < mergeThreshold) {
+            if (std::get<1>(rawEvents[j]) == 0) isMain = true;
+            if (std::get<1>(rawEvents[j]) == 1) isPoly = true;
             ++j;
         }
-        // type: 0 = main only, 1 = poly only, 2 = both (downbeat)
         int evType = isMain ? (isPoly ? 2 : 0) : 1;
-        scheduledEvents.push_back({std::round(t), evType});
+        scheduledEvents.push_back({std::round(t), evType, col});
         idx = j;
     }
 
@@ -144,11 +170,8 @@ void MetronomeEngine::startPolyrhythmBar(bool newBar) {
     if (lastBarStartMs == 0) {
         lastBarStartMs = QDateTime::currentMSecsSinceEpoch();
     } else {
-        lastBarStartMs += barMs;
-    }
-
-    // Debug: print all event times for verification
-    for (const auto& ev : scheduledEvents) {
+        // Advance by the duration of the previous bar (at the previous tempo)
+        lastBarStartMs += oldBarMs;
     }
 
     scheduleNextPolyrhythmPulse();
@@ -179,14 +202,17 @@ void MetronomeEngine::tick() {
         double nowMs = QDateTime::currentMSecsSinceEpoch() - lastBarStartMs;
 
         while (schedIdx < static_cast<int>(scheduledEvents.size())
-               && nowMs >= scheduledEvents[schedIdx].timeMs - 2.0) {
+            && nowMs >= scheduledEvents[schedIdx].timeMs - 2.0) {
             int type = scheduledEvents[schedIdx].type;
+            int gridColumn = scheduledEvents[schedIdx].gridCol;
             if (type == 2) {
-                emit pulse(0, true, true, true); // Both main and poly on downbeat
+                emit pulse(mainBeatInBar, true, true, true, true, gridColumn);
+                mainBeatInBar++;
             } else if (type == 0) {
-                emit pulse(schedIdx, true, false, true);
+                emit pulse(mainBeatInBar, true, false, true, true, gridColumn);
+                mainBeatInBar++;
             } else if (type == 1) {
-                emit pulse(schedIdx, false, true, false);
+                emit pulse(-1, false, true, false, true, gridColumn);
             }
             ++schedIdx;
         }
@@ -247,9 +273,7 @@ void MetronomeEngine::tick() {
         playPulse = (pulseInBeat == 0) ? accent : (pulseInBeat != 2);
     }
 
-    if (playPulse) {
-        emit pulse(pulseIdx, accent, false, isBeat);
-    }
+    emit pulse(pulseIdx, accent, false, isBeat, playPulse, -1);
 
     pulseIdx++;
     if (subdivision == NoteValue::Eighth_Sixteenth_Sixteenth ||

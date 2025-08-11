@@ -3,6 +3,7 @@
 #include <QPalette>
 #include <QStyleFactory>
 #include "mainwindow.h"
+#include <QSettings>
 
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
@@ -30,6 +31,14 @@ int main(int argc, char *argv[]) {
         app.setStyleSheet(f.readAll());
 
     MainWindow w;
+
+    // --- Always on top flag set BEFORE show ---
+    QSettings settings("YourCompany", "MetronomeApp");
+    bool alwaysOnTop = settings.value("alwaysOnTop", false).toBool();
+    if (alwaysOnTop) {
+        w.setWindowFlag(Qt::WindowStaysOnTopHint, true);
+    }
     w.show();
+
     return app.exec();
 }

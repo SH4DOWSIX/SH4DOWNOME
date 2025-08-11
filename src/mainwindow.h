@@ -23,6 +23,8 @@ public:
     ~MainWindow();
 
     QString subdivisionImagePathFromIndex(int index) const;
+    bool isQuarterNotePulse(int pulseIdx) const;
+    
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -33,13 +35,15 @@ private slots:
     void onTempoChanged(int value);
     void onSubdivisionChanged(int index);
     void onAccentChanged();
-    void onMetronomePulse(int pulseIdx, bool accent, bool polyAccent, bool isBeat);
+    void onMetronomePulse(int idx, bool accent, bool polyAccent, bool isBeat, bool playPulse, int gridColumn);
 
     void onSavePreset();
     void onLoadPreset();
     void refreshPresetList();
     void onDeletePreset();
     void onRenamePreset();
+
+    
 
     void onSectionSelected(int row, int col);
     void onAddSection();
@@ -49,11 +53,10 @@ private slots:
     void onMoveSectionDown();
     void onTapTempo();
     void onTempoSliderChanged(int value);
+    
+    
 
-    void onStartClicked();
-    void onStopClicked();
-    void onTimerTick();
-    void updateTimerLabel();
+    
 
     void onSubdivisionImageClicked();
     void setSubdivisionImage(int index);
@@ -71,8 +74,38 @@ private:
     QList<QCheckBox*> accentChecks;
     BeatIndicatorWidget* m_beatIndicatorWidget = nullptr;
 
+    NoteValue m_savedAfterCountInSubdivision = NoteValue::Quarter;
+    bool m_switchSubdivisionAfterCountIn = false;
+    bool m_switchPolyrhythmAfterCountIn = false;
+    bool m_pendingStartPoly = false;
+    bool m_pendingStartSubdiv = false;
+    bool m_pendingPolyrhythmStart = false;
+    bool m_countInEnabled = false;
+
+    int m_polyModeDelayMs = 225;
+    bool m_pendingBarLabelUpdate = false;
+
+    int m_polyModeBarsDelay = -1; // Number of FULL bars to wait after count-in before switching to polyrhythm
+    int m_polyModeBarsElapsed = 0;
+    bool m_armPolyModeAfterBars = false;
+    bool m_armPolyModeNextBar = false;
+    int m_playingBarCounter = 1;
+
+    int m_polyrhythmGridStep = 0;
+
+    void onCountInTick();
+    void startMainMetronomeAfterCountIn();
+    void startCountIn();
+    QTimer* m_countInTimer = nullptr;     // Timer for count-in ticks
+    int m_countInBeatsRemaining = 0;      // Quarter notes left in count-in
+
     int currentNumerator = 4;
     int currentDenominator = 4;
+    bool m_pendingPolyTempoStep = false;
+    bool m_pendingSpeedTrainerStep = false;
+
+    QTime m_lastEnteredTimerValue;
+    bool m_timerWasRunning = false;
 
     void updateSubPolyCell(int sectionIdx);
     bool m_metronomeWasRunning = false;
@@ -91,6 +124,8 @@ private:
     void saveUIToSection(int idx);
     QTimer* timer = nullptr;
     int timerSecondsRemaining = 0;
+
+    int m_countInPulseIdx = 0;
 
     int getCurrentSubdivisionIndex() const;
     int subdivisionCountFromIndex(int index) const;
@@ -111,10 +146,40 @@ private:
     void showPolyrhythmNumberDialog();
     void onPolyrhythmNumberClicked();
 
+    bool m_alwaysOnTop = false;
+
 
     bool m_timerEnabled = false;
-void onTimerToggle();
-void updateTimerUI();
+    void onTimerToggle();
+    void updateTimerUI();
+
+
+    bool m_speedTrainerEnabled = false;
+    bool m_speedTrainerCountingIn = false;
+    int m_speedTrainerCountInBeats = 0;
+    int m_speedTrainerBarCounter = 0;
+    int m_speedTrainerBarsPerStep = 4;
+    int m_speedTrainerTempoStep = 2;
+    int m_speedTrainerMaxTempo = 180;
+    int m_speedTrainerStartTempo = 120;
+    int m_speedTrainerCurrentTempo = 120;
+    bool m_countingIn = false;
+    
+    
+    
+    int m_speedTrainerCurrentBar = 1;
+    bool m_speedTrainerPolyrhythm = false; // If running polyrhythm
+    bool m_speedTrainerFirstCycle = true;
+
+    void startSpeedTrainerMain();
+    void handleSpeedTrainerBarEnd();
+    void updateSpeedTrainerStatus();
+    void resetSpeedTrainer();
+
+    int m_countInBeatsLeft = 0;
+    int m_countInBar = 0;
+    int m_countInBarTotal = 1;
+
 
 
     PresetManager presetManager;
