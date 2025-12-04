@@ -10,10 +10,16 @@
 #include "beatindicatorwidget.h"
 #include "obsbeatwidget.h"
 #include <QLabel>
+#include "noteassembler.h"
+#include <QPushButton>
+#include <QTime>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
+
+class OBSBeatWindow;
+class QWidget;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -22,9 +28,8 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    QString subdivisionImagePathFromIndex(int index) const;
-    bool isQuarterNotePulse(int pulseIdx) const;
-    
+    void updateButtonColors();
+    void resetBarCounterAndLabel(const MetronomeSection& s);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
@@ -33,17 +38,14 @@ protected:
 private slots:
     void onStartStop();
     void onTempoChanged(int value);
-    void onSubdivisionChanged(int index);
     void onAccentChanged();
-    void onMetronomePulse(int idx, bool accent, bool polyAccent, bool isBeat, bool playPulse, int gridColumn);
+    void onMetronomePulse(AudioPulseEvent ev);
 
     void onSavePreset();
     void onLoadPreset();
     void refreshPresetList();
     void onDeletePreset();
     void onRenamePreset();
-
-    
 
     void onSectionSelected(int row, int col);
     void onAddSection();
@@ -54,15 +56,9 @@ private slots:
     void onTapTempo();
     void onTempoSliderChanged(int value);
 
-    
-    
     void onSpeedToggle();
-    
-
-    
 
     void onSubdivisionImageClicked();
-    void setSubdivisionImage(int index);
 
     void onSectionRowMoved(int from, int to);
 
@@ -70,37 +66,68 @@ private slots:
 
     void onPolyrhythmClicked();
 
+    // --- ADDED FOR CTRL+UP/DOWN SUPPORT ---
+    void onMoveSectionViaShortcut(int fromRow, int toRow);
+
+    // OBS popout window close handler
+    void onObsWindowAboutToClose();
+
 private:
     Ui::MainWindow *ui;
     MetronomeEngine metronome;
     QSoundEffect accentSound, clickSound;
     QList<QCheckBox*> accentChecks;
     BeatIndicatorWidget* m_beatIndicatorWidget = nullptr;
+    int m_speedTrainerTotalBarCounter = 0;
 
-    NoteValue m_savedAfterCountInSubdivision = NoteValue::Quarter;
-    bool m_switchSubdivisionAfterCountIn = false;
+    int m_countInCurrentBeat = 0;
+    int m_countInBeatsRemaining = 0;
+    QTimer* m_countInTimer = nullptr;
+
     bool m_switchPolyrhythmAfterCountIn = false;
     bool m_pendingStartPoly = false;
     bool m_pendingStartSubdiv = false;
     bool m_pendingPolyrhythmStart = false;
     bool m_countInEnabled = false;
+    int m_lastPolyrhythmCycleIdx = -1;
+    bool m_polyrhythmCycleActive = false;
+    int m_speedTrainerPendingTempo = -1;
+    int m_lastBarIdx = -1;
+    bool m_pendingTempoApplied = false;
 
     int m_polyModeDelayMs = 225;
     bool m_pendingBarLabelUpdate = false;
+    bool m_isSpeedTrainerAutoChange = false;
+    bool m_polyrhythmJustRestarted = false;
 
-    int m_polyModeBarsDelay = -1; // Number of FULL bars to wait after count-in before switching to polyrhythm
+    int m_polyModeBarsDelay = -1;
     int m_polyModeBarsElapsed = 0;
     bool m_armPolyModeAfterBars = false;
     bool m_armPolyModeNextBar = false;
     int m_playingBarCounter = 1;
+    int m_polyBarCount = 1;
+    int m_lastPolyBarIncrementIdx = -1;
+    int m_lastPolyBarIncrementCycle = -1;
+    int m_polyPulseInCycle = 0;
+
+    bool m_switchSubdivisionAfterCountIn = false;
+    int m_nextSubdivisionIndex = -1;
+    bool m_speedTrainerPolyFirstCycle = true;
+
+    SubdivisionPattern m_nextSubdivisionPattern;
 
     int m_polyrhythmGridStep = 0;
+    int m_speedTrainerBarInCycle = 0;
+
+
+    NoteAssemblerConfig configForPattern(const SubdivisionPattern& pattern) const;
+    QPixmap assembleSubdivisionPixmapForOBS(const SubdivisionPattern& pattern) const;
+
 
     void onCountInTick();
     void startMainMetronomeAfterCountIn();
     void startCountIn();
-    QTimer* m_countInTimer = nullptr;     // Timer for count-in ticks
-    int m_countInBeatsRemaining = 0;      // Quarter notes left in count-in
+    
 
     int currentNumerator = 4;
     int currentDenominator = 4;
@@ -131,11 +158,6 @@ private:
 
     int m_countInPulseIdx = 0;
 
-    int getCurrentSubdivisionIndex() const;
-    int subdivisionCountFromIndex(int index) const;
-    NoteValue noteValueFromIndex(int index) const;
-    QString subdivisionTextFromIndex(int index) const;
-
     void updatePolyrhythmButtonColor();
 
     bool m_timerEnabled = false;
@@ -148,6 +170,14 @@ private:
     bool m_obsHidden = false;
     bool m_obsInLayout = true;
 
+    // Popout support: top-level window that hosts the OBSBeatWidget when enabled
+    OBSBeatWindow* m_obsWindow = nullptr;
+    QWidget* m_obsHiddenHost = nullptr; // hidden host when OBS is turned off
+
+    // Helper methods to open/close popout
+    void openObsPopoutWindow();
+    void closeObsPopoutWindow();
+
     QLabel* m_labelPolyrhythmNumerator = nullptr;
     QLabel* m_labelPolyrhythmDenominator = nullptr;
     QWidget* m_polyrhythmNumberWidget = nullptr;
@@ -158,11 +188,8 @@ private:
 
     bool m_alwaysOnTop = false;
 
-
-    
     void onTimerToggle();
     void updateTimerUI();
-
 
     bool m_speedTrainerEnabled = false;
     bool m_speedTrainerCountingIn = false;
@@ -175,8 +202,6 @@ private:
     int m_speedTrainerCurrentTempo = 120;
     bool m_countingIn = false;
     
-    
-    
     int m_speedTrainerCurrentBar = 1;
     bool m_speedTrainerPolyrhythm = false; // If running polyrhythm
     bool m_speedTrainerFirstCycle = true;
@@ -187,12 +212,11 @@ private:
     void resetSpeedTrainer();
 
     void updateSectionTableEnabledState();
+    SubdivisionPattern getDefaultSubdivisionPattern() const;
 
     int m_countInBeatsLeft = 0;
     int m_countInBar = 0;
     int m_countInBarTotal = 1;
-
-
 
     PresetManager presetManager;
     const QString presetFile = "presets.json";
@@ -210,4 +234,7 @@ private:
 
     // Polyrhythm UI state
     bool m_polyDialogOpen = false;
+
+    QPushButton* m_timeSigBtn = nullptr; // Add as member
+    QPushButton* m_polyrhythmEnableBtn;
 };

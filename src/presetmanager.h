@@ -5,12 +5,14 @@
 #include <QMap>
 #include <vector>
 #include "metronomeengine.h"
+#include "subdivisionpattern.h"
 
+// --- PATCH: Use only SubdivisionPattern for per-section custom playback ---
 struct MetronomeSection {
     int tempo;
     int numerator;
     int denominator;
-    int subdivision;
+    SubdivisionPattern subdivisionPattern;        // Only one pattern per section
     std::vector<bool> accents;
     QString label;
     bool hasPolyrhythm = false;

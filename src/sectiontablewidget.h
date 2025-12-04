@@ -1,12 +1,13 @@
 #pragma once
 #include <QTableWidget>
+#include <QKeyEvent>
 
 class SectionTableWidget : public QTableWidget {
     Q_OBJECT
 public:
     using QTableWidget::QTableWidget;
 signals:
-    void rowMoved(int from, int to);
+    void moveSectionRequested(int fromRow, int toRow);
 protected:
-    void dropEvent(QDropEvent *event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 };

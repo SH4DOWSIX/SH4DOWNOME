@@ -1,9 +1,9 @@
 #pragma once
 
 #include <QObject>
-#include <QTimer>
-#include <QDateTime>
 #include <vector>
+#include "subdivisionpattern.h"
+#include "audioengine.h"
 
 enum class NoteValue {
     Quarter, Eighth, Sixteenth, Triplet,
@@ -17,19 +17,13 @@ enum class NoteValue {
     EighthRest_Eighth_Eighth,
     Eighth_EighthRest_Eighth,
     Eighth_Eighth_EighthRest,
-    EighthRest_Eighth_EighthRest
+    EighthRest_Eighth_EighthRest,
+    DottedQuarter
 };
 
 struct Polyrhythm {
     int primaryBeats = 3;
     int secondaryBeats = 2;
-};
-
-// Updated PolyEvent struct to include the grid column
-struct PolyEvent {
-    double timeMs;
-    int type; // 0 = main, 1 = poly, 2 = both
-    int gridCol; // grid column index for visual highlight
 };
 
 class MetronomeEngine : public QObject
@@ -38,72 +32,90 @@ class MetronomeEngine : public QObject
 public:
     explicit MetronomeEngine(QObject *parent = nullptr);
 
-    void setPulseIdx(int idx) { pulseIdx = idx; }
+    // --- PATCH: Add public getter and setter for count-in enabled ---
+    bool countInEnabled() const { return m_countInEnabled; }
+    void setCountInEnabled(bool enabled);
+    // ---------------------------------------------------------------
 
-    int currentTempo() const { return tempoBpm; }
+    void setPulseIdx(int idx) { m_pulseIdx = idx; }
 
+    int currentTempo() const { return m_tempoBpm; }
     void setTempo(int bpm);
     void setTimeSignature(int num, int denom);
     void setAccentPattern(const std::vector<bool> &accents);
-    void setSubdivision(NoteValue noteValue);
+    void setSubdivisionPattern(const SubdivisionPattern& pattern);
+    SubdivisionPattern subdivisionPattern() const { return m_subdivisionPattern; }
     void setPolyrhythmEnabled(bool enable);
     void setPolyrhythm(int main, int poly);
+    void playCountInClick(bool accent = false);
 
     void start();
     void stop();
     bool isRunning() const;
     int currentPulse() const;
     bool isAccent(int beatIdx) const;
-    bool isPolyrhythmEnabled() const { return polyrhythmEnabled; }
-    Polyrhythm getPolyrhythm() const { return polyrhythm; }
+    bool isPolyrhythmEnabled() const { return m_polyrhythmEnabled; }
+    Polyrhythm getPolyrhythm() const { return m_polyrhythm; }
 
-    void startPolyrhythmBar(bool newBar);
-    double pulseIntervalMs(int pulseInPattern) const;
+    void armTempo(int t) { 
+    m_armedTempo = t; 
+    setTempo(t); // Actually apply the tempo
+}
 
-    int pulsesPerBar() const;
+    void resetDeduplication();
 
-    // New: Arm a tempo to be applied at the next bar
-    void armTempo(int t) { armedTempo = t; }
+    bool loadSample(const QString& name, const QString& resourcePath);
+    void setAccentSound(const QString& name);
+    void setClickSound(const QString& name);
+    void setVolume(float vol);
+    void playAccent();
+    void playClick();
+
+    int globalPulseCount() const { return m_globalPulseCount; }
+    int globalBarCount() const { return m_globalBarCount; }
+
+    void startWithCountIn(int countInBeats);
+
+    AudioEngine* audioEngine();
 
 signals:
-    // Now passes gridColumn for visual highlight
-    void pulse(int eventIdx, bool accent, bool polyAccent, bool isMainBeat, bool playPulse, int gridColumn);
-
-protected:
-    void timerEvent(QTimerEvent *event) override;
+    void pulse(AudioPulseEvent ev);
 
 private slots:
-    void tick();
+    void onAudioPulse(AudioPulseEvent ev);
 
 private:
     // General metronome state
-    QTimer timer;
-    int tempoBpm = 120;
-    int numerator = 4;
-    int denominator = 4;
-    int pulseIdx = 0;
-    int patternStep = 0;
-    bool running = false;
-    int mainBeatInBar = 0;
+    int m_tempoBpm = 120;
+    int m_numerator = 4;
+    int m_denominator = 4;
+    int m_pulseIdx = 0;
+    int m_patternPulseIdx = 0;
+    bool m_running = false;
+    int m_mainBeatInBar = 0;
+    int beatsPerBar() const;
+    bool isCompoundTime() const;
+    int m_globalPulseCount = 0;
+    int m_globalBarCount = 0;
+    int m_armedTempo = -1;
+    bool m_countInEnabled = false; // count-in state
+    void scheduleCustomSubdivisionLoop();
 
-    int armedTempo = -1;
-
-    NoteValue subdivision = NoteValue::Quarter;
-    std::vector<bool> accentPattern;
+    SubdivisionPattern m_subdivisionPattern;
+    std::vector<bool> m_accentPattern;
 
     // Polyrhythm state
-    bool polyrhythmEnabled = false;
-    Polyrhythm polyrhythm;
-    double barMs = 0.0;
-    qint64 lastBarStartMs = 0;
+    bool m_polyrhythmEnabled = false;
+    Polyrhythm m_polyrhythm;
+    double m_barLengthSeconds = 0.0;
 
-    // --- Polyrhythm event scheduling ---
-    std::vector<PolyEvent> scheduledEvents;
-    int schedIdx = 0;
-    
-    void scheduleNextPolyrhythmPulse();
-    void handlePolyrhythmPulse();
+    AudioEngine* m_audioEngine = nullptr;
 
-    // --- Standard metronome logic ---
-    bool isMainBeat(int pulseIdx) const;
+    // Pulse schedule for current bar/cycle
+    std::vector<AudioPulseEvent> m_pulseSchedule;
+    void updatePulseSchedule(int countInBeats = 0);
+
+    // For deduplication (UI update logic)
+    int m_lastPulseEmittedIdx = -1;
+    int m_lastPulseEmittedPatternIdx = -1;
 };
