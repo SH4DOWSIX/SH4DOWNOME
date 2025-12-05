@@ -1,5 +1,5 @@
 # SH4DOWNOME
-Metronome App with Polyrhythm support for Windows Built in C++
+Metronome App with Polyrhythm support for Windows.
 
 - You can turn off the window (OBS Beat) in the settings of the metronome, it's default to show upon first use.
 - Start/Stop the Metronome with the space bar.
