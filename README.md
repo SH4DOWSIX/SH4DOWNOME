@@ -31,5 +31,6 @@ Feature packed Metronome App for Windows.
 ## Known Issues
 
 - Accents not saving.
+- Custom Subdivisions are in an early state of development.
 
 ![](images/16.png)  ![](images/15.png)
