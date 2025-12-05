@@ -1,6 +1,22 @@
 # SH4DOWNOME
 Metronome App with Polyrhythm support for Windows.
 
+##Features
+- Save Pieces and add sections to them.
+- Count in.
+- Subdivision & Polyrhythm support.
+- Custom Subdivision editor.
+- Time Signatures.
+- Tap Tempo.
+- Accents.
+- Speed Trainer.
+- Timer.
+- OBS pop out window for easy capturing.
+- Always on top.
+- Colour personalization.
+- Different clicks.
+
+##Quick Start
 - You can turn off the window (OBS Beat) in the settings of the metronome, it's default to show upon first use.
 - Start/Stop the Metronome with the space bar.
 - Change sections with Arrow Keys.
