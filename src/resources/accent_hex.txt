@@ -1,0 +1,7 @@
+CertUtil: Unknown arg: -hex
+
+
+CertUtil -?              -- Display a verb list (command list)
+CertUtil -dump -?        -- Display help text for the "dump" verb
+CertUtil -v -?           -- Display all help text for all verbs
+

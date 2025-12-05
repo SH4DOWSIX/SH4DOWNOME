@@ -1,0 +1,75 @@
+<RCC>
+<qresource prefix="/resources">
+    <file>accent.wav</file>
+    <file>click.wav</file>
+    <file>woodblock.wav</file>
+    <file>woodblock_accent.wav</file>
+    <file>wooden.wav</file>
+    <file>wooden_accent.wav</file>
+    <file>bongo.wav</file>
+    <file>bongo_accent.wav</file>
+    <file>cowbell.wav</file>
+    <file>cowbell_accent.wav</file>
+    <file>digital.wav</file>
+    <file>digital_accent.wav</file>
+    <file>drum.wav</file>
+    <file>drum_accent.wav</file>
+    <file>hihat.wav</file>
+    <file>hihat_accent.wav</file>
+    <file>metal.wav</file>
+    <file>metal_accent.wav</file>
+</qresource>
+ <qresource prefix="/resources">
+    <file>quarter.svg</file>
+    <file>eighth.svg</file>
+    <file>sixteenth.svg</file>
+    <file>triplet.svg</file>
+    <file>treble_clef.png</file>
+    <file>eighth_16th_16th.svg</file>
+    <file>16th_16th_eighth.svg</file>
+    <file>16th_eighth_16th.svg</file>
+    <file>dotted8th_16th.svg</file>
+    <file>16th_dotted8th.svg</file>
+    <file>eighthrest_eighth.svg</file>
+    <file>16threst_16th_16threst_16th.svg</file>
+    <file>eighthrest_eighth_eighth.svg</file>
+    <file>eighth_eighthrest_eighth.svg</file>
+    <file>eighth_eighth_eighthrest.svg</file>
+    <file>eighthrest_eighth_eighthrest.svg</file>
+</qresource>
+<qresource prefix="/resources">
+    <file>svg/accidental_flat.svg</file>
+    <file>svg/accidental_natural.svg</file>
+    <file>svg/accidental_sharp.svg</file>
+    <file>svg/beam_double.svg</file>
+    <file>svg/beam_single.svg</file>
+    <file>svg/dot.svg</file>
+    <file>svg/flag_eighth_down.svg</file>
+    <file>svg/flag_eighth_up.svg</file>
+    <file>svg/flag_sixteenth_down.svg</file>
+    <file>svg/flag_sixteenth_up.svg</file>
+    <file>svg/flag_sixtyfourth_down.svg</file>
+    <file>svg/flag_sixtyfourth_up.svg</file>
+    <file>svg/flag_thirtysecond_down.svg</file>
+    <file>svg/flag_thirtysecond_up.svg</file>
+    <file>svg/notehead_filled.svg</file>
+    <file>svg/notehead_half.svg</file>
+    <file>svg/notehead_whole.svg</file>
+    <file>svg/number_3.svg</file>
+    <file>svg/number_4.svg</file>
+    <file>svg/number_5.svg</file>
+    <file>svg/number_6.svg</file>
+    <file>svg/number_7.svg</file>
+    <file>svg/number_8.svg</file>
+    <file>svg/number_9.svg</file>
+    <file>svg/rest_eighth.svg</file>
+    <file>svg/rest_quarter.svg</file>
+    <file>svg/rest_sixteenth.svg</file>
+    <file>svg/rest_sixtyfourth.svg</file>
+    <file>svg/rest_thirtysecond.svg</file>
+    <file>svg/stem_up.svg</file>
+</qresource>
+    <qresource prefix="">
+        <file>../themes/dark.qss</file>
+    </qresource>
+</RCC>
