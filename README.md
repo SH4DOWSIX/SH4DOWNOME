@@ -2,7 +2,7 @@
 Metronome App with Polyrhythm support for Windows.
 
 ## Features
-- Save Pieces and add sections to them.
+- Save Pieces and add Sections to them.
 - Count in.
 - Subdivision & Polyrhythm support.
 - Custom Subdivision editor.
