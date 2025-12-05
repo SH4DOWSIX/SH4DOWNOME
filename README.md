@@ -19,7 +19,7 @@ Feature packed Metronome App for Windows.
 
 ## Quick Start Guide
 - If you're a first time user, nothing saves, so create a new piece if you want to recall stuff. (You can have as many pieces/sections as you want.)
-- For keeping/migrating the saved settings between different versions, copy the preset.json file from the old folder to the new folder.
+- For keeping/migrating the saved pieces/sections between different versions, copy the preset.json file from the old folder to the new folder.
 - You can turn off the pop out window (OBS Beat) in the settings of the metronome, it's default to show upon first use.
 - Start/Stop the Metronome with the space bar.
 - Change sections with Arrow Up and Down Keys.
