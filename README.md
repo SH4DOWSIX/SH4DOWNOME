@@ -8,7 +8,7 @@ Feature packed Metronome App for Windows.
 - Custom Subdivision editor.
 - Time Signatures.
 - Tap Tempo.
-- Beat Accents.
+- Accent beats.
 - Speed Trainer.
 - Timer.
 - OBS pop out window for easy capturing.
