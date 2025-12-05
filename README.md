@@ -1,5 +1,6 @@
 # SH4DOWNOME
-Feature packed Metronome App for Windows.  Alpha tag till I flesh out the custom subdivision editor.
+Feature packed Metronome App for Windows.  
+Alpha tag till I flesh out the custom subdivision editor.
 
 ## Features
 - Save Pieces and add Sections to them.
