@@ -1,7 +1,7 @@
 # SH4DOWNOME
 Metronome App with Polyrhythm support for Windows.
 
-##Features
+## Features
 - Save Pieces and add sections to them.
 - Count in.
 - Subdivision & Polyrhythm support.
@@ -16,7 +16,7 @@ Metronome App with Polyrhythm support for Windows.
 - Colour personalization.
 - Different clicks.
 
-##Quick Start
+## Quick Start
 - You can turn off the window (OBS Beat) in the settings of the metronome, it's default to show upon first use.
 - Start/Stop the Metronome with the space bar.
 - Change sections with Arrow Keys.
