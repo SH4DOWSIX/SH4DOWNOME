@@ -15,6 +15,7 @@ Metronome App with Polyrhythm support for Windows.
 - Always on top.
 - Colour personalization.
 - Different clicks.
+- Beat indicator.
 
 ## Quick Start
 - You can turn off the window (OBS Beat) in the settings of the metronome, it's default to show upon first use.
