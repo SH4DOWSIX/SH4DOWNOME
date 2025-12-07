@@ -18,7 +18,7 @@ Alpha tag till I flesh out the custom subdivision editor.
 - Different click sounds.
 - Beat indicator.
 
-## Installation
+## Installation/Upgrading
 - This is a portable app, download the src folder and build with QT 6.9.1 or download the latest release, extract the contents of the zip, run the "SH4DOWNOME.exe" from inside the folder.
 - For keeping/migrating the saved pieces/sections between different versions, copy the preset.json file from the old folder to the new folder.
 
