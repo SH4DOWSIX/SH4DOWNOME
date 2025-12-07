@@ -19,7 +19,7 @@ Alpha tag till I flesh out the custom subdivision editor.
 - Beat indicator.
 
 ## Installation
-- This is a portable app, Download the src folder and build with QT 6.9.1 or download the latest release, extract the contents of the zip, run the exe inside the folder.
+- This is a portable app, download the src folder and build with QT 6.9.1 or download the latest release, extract the contents of the zip, run the exe inside the folder.
 
 ## Quick Start Guide
 - If you're a first time user, nothing saves, so create a new piece if you want to recall stuff. (You can have as many pieces/sections as you want.)
