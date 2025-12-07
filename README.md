@@ -38,5 +38,3 @@ Alpha tag till I flesh out the custom subdivision editor.
 - Custom Subdivisions are in an early state of development.
 
 ![](images/16.png)  ![](images/15.png)
-
-<img src="images/16.png" alt="Alt Text" style="width:50%; height:auto;">
