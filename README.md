@@ -6,7 +6,7 @@ Feature packed Metronome App for Windows.
 - Count in.
 - Subdivision & Polyrhythm support.
 - Custom Subdivision editor.
-- Time Signatures.
+- Various Time Signatures.
 - Tap Tempo.
 - Accent beats.
 - Speed Trainer.
