@@ -401,10 +401,8 @@ void MetronomeEngine::onAudioPulse(AudioPulseEvent ev) {
         }
     }
 
-    if (ev.idx != m_lastPulseEmittedIdx) {
-        m_lastPulseEmittedIdx = ev.idx;
-        emit pulse(ev);
-    }
+    m_lastPulseEmittedIdx = ev.idx;
+    emit pulse(ev);
 }
 
 bool MetronomeEngine::loadSample(const QString& name, const QString& resourcePath) {

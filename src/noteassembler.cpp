@@ -154,11 +154,12 @@ if (config.centerVertically) {
     int stemHeight = int(noteheadHeight * 2.4);
     int stemWidth = std::max(2, int(noteheadWidth * 0.1667)); // 2px at 12px
 
-    //--- Find beam groups (runs of notes uninterrupted by rests)
+    //--- Find beam groups (runs of beamable notes uninterrupted by rests or unbeamable notes)
     std::vector<std::vector<int>> beamGroups;
     std::vector<int> group;
     for (int i = 0; i < noteCount; ++i) {
-        if (!isRestType(noteTypes[i])) {
+        bool canBeam = !isRestType(noteTypes[i]) && beamsForNoteType(noteTypes[i]) > 0;
+        if (canBeam) {
             group.push_back(i);
         } else if (!group.empty()) {
             beamGroups.push_back(group);
@@ -179,16 +180,23 @@ if (config.centerVertically) {
         QPixmap nh = whiteSvgToPixmap(svgForNotehead(noteTypes[i]), noteheadSize);
         p.drawPixmap(x, y_head, nh);
 
-        // ----- Stem: attach to right edge of notehead -----
-        int x_stem = x + int(noteheadWidth) - int(noteheadWidth * 0.18); // 0.08 fudge, scaled for 12px
+        // ----- Stem: whole notes have no stem; half and shorter do -----
+        bool hasStem = (noteTypes[i] != AssembledNoteType::Whole);
+        int x_stem = x + int(noteheadWidth) - int(noteheadWidth * 0.18);
         int y_stem_top = y_head - stemHeight + int(noteheadHeight * 0.33);
         int y_stem_bottom = y_head + int(noteheadHeight * 0.4);
 
-        // Draw stem (white, up)
-        p.setPen(Qt::NoPen); p.setBrush(Qt::white);
-        p.drawRect(x_stem, y_stem_top, stemWidth, y_stem_bottom - y_stem_top);
-        stemTops[i] = QPoint(x_stem, y_stem_top);
-        stemTips[i] = QPoint(x_stem + stemWidth / 2, y_stem_top);
+        if (hasStem) {
+            p.setPen(Qt::NoPen); p.setBrush(Qt::white);
+            p.drawRect(x_stem, y_stem_top, stemWidth, y_stem_bottom - y_stem_top);
+            stemTops[i] = QPoint(x_stem, y_stem_top);
+            stemTips[i] = QPoint(x_stem + stemWidth / 2, y_stem_top);
+        } else {
+            // Whole note: place stem position at notehead centre for beam group logic
+            // (whole notes won't actually beam, but keeps array consistent)
+            stemTops[i] = QPoint(x + int(noteheadWidth / 2), y_head);
+            stemTips[i] = QPoint(x + int(noteheadWidth / 2), y_head);
+        }
 
         // ----- Dot -----
         bool dotted = (!config.dottedNotes.empty() && i < int(config.dottedNotes.size()) && config.dottedNotes[i]);
@@ -272,7 +280,9 @@ for (const auto& group : beamGroups) {
         for (const auto& group : beamGroups)
             if (std::find(group.begin(), group.end(), i) != group.end() && group.size() > 1)
                 isBeamed = true;
-        if (!isBeamed && beamsForNoteType(noteTypes[i]) > 0) {
+        if (!isBeamed && beamsForNoteType(noteTypes[i]) > 0
+            && noteTypes[i] != AssembledNoteType::Half
+            && noteTypes[i] != AssembledNoteType::Whole) {
             QString flagSvg = svgForFlag(noteTypes[i]);
             if (!flagSvg.isEmpty()) {
                 QPixmap flagPix = whiteSvgToPixmap(flagSvg, QSize(noteheadWidth * 1.65, noteheadHeight * 1.80));
@@ -283,8 +293,31 @@ for (const auto& group : beamGroups) {
         }
     }
 
+    //--- Per-note tuplet numbers (for mixed patterns with some triplet notes)
+    if (!config.perNoteTupletNumbers.empty()) {
+        for (int i = 0; i < noteCount && i < (int)config.perNoteTupletNumbers.size(); ++i) {
+            if (config.perNoteTupletNumbers[i] <= 1) continue;
+            if (isRestType(noteTypes[i])) continue;
+            int n = config.perNoteTupletNumbers[i];
+            QString numberSvg = svgForTupletNumber(n);
+            int numberSize = int(noteheadHeight * 0.6667);
+            QPixmap numberPix = whiteSvgToPixmap(numberSvg, QSize(numberSize, numberSize));
+            int x_num = x_positions[i] - numberPix.width() / 2;
+            int y_num = stemTops[i].y() - numberPix.height() - int(noteheadHeight * 0.25);
+            p.drawPixmap(x_num, y_num, numberPix);
+        }
+    }
+
     //--- Tuplet bracket and number (white, always visible, centered above)
-    if (config.tupletNumber > 1 && noteCount > 1) {
+    if (config.tupletNumber > 1 && noteCount == 1) {
+        // Single note with tuplet marker: just draw the number above the stem tip, no bracket
+        QString numberSvg = svgForTupletNumber(config.tupletNumber);
+        int numberSize = int(noteheadHeight * 0.6667);
+        QPixmap numberPix = whiteSvgToPixmap(numberSvg, QSize(numberSize, numberSize));
+        int x_num = x_positions[0] - numberPix.width() / 2;
+        int y_num = stemTops[0].y() - numberPix.height() - int(noteheadHeight * 0.25);
+        p.drawPixmap(x_num, y_num, numberPix);
+    } else if (config.tupletNumber > 1 && noteCount > 1) {
         int firstIdx = 0, lastIdx = noteCount - 1;
         int firstNoteIdx = -1, lastNoteIdx = -1;
         for (int i = 0; i < noteCount; ++i) {
@@ -312,6 +345,19 @@ for (const auto& group : beamGroups) {
         int y_num = y_bracket - numberPix.height() + int(noteheadHeight * 0.1667); // 2px at 12px
 
         if (config.tupletNumber == 3) {
+            // Triplet: draw bracket + number same as other tuplets
+            int gap = numberPix.width() + int(noteheadWidth * 0.6667);
+            int gapPadding = int(noteheadWidth * 0.3333);
+            int x_gap_left = x_num - gapPadding;
+            int x_gap_right = x_num + numberPix.width() + gapPadding;
+
+            int bracketThickness = int(noteheadHeight * 0.1667);
+            p.setPen(QPen(Qt::white, bracketThickness));
+            p.drawLine(x_left, y_bracket, x_gap_left, y_bracket);
+            p.drawLine(x_gap_right, y_bracket, x_right, y_bracket);
+            int bracketVerticalLength = int(noteheadHeight * 0.25);
+            p.drawLine(x_left, y_bracket, x_left, y_bracket + bracketVerticalLength);
+            p.drawLine(x_right, y_bracket, x_right, y_bracket + bracketVerticalLength);
             p.drawPixmap(x_num, y_num, numberPix);
         } else {
             int gap = numberPix.width() + int(noteheadWidth * 0.6667); // 8px at 12px

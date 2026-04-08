@@ -6,6 +6,7 @@
 #include <QString>
 #include <vector>
 #include <atomic>
+#include <cstdint>
 
 // MiniAudio (header-only)
 #include "miniaudio.h"
@@ -124,7 +125,7 @@ private:
     int m_scheduleLengthSamples = 0;
     int m_scheduleSampleRate = 44100;
     double m_barLengthSeconds = 2.0;
-    int m_globalSamplePos = 0;
+    int64_t m_globalSamplePos = 0;
 
     PulseCallback m_pulseCallback = nullptr;
     bool m_flushedRecently = false;
@@ -146,7 +147,7 @@ private:
     QMutex m_schedMutex;
 
     // Deduplication: swap position to skip duplicate pulse at boundary
-    int m_pendingScheduleSwapSamplePos = -1;
+    int64_t m_pendingScheduleSwapSamplePos = -1;
     
     // NEW: Sample rate detection method (ADD THIS LINE)
     void detectSampleRateSafe();

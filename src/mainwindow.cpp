@@ -50,7 +50,7 @@ static const struct {
     int minBpm;
     int maxBpm;
 } ItalianTempoMarkings[] = {
-    {"Grave", 20, 40},
+    {"Grave", 1, 40},
     {"Largo", 40, 60},
     {"Larghetto", 60, 66},
     {"Adagio", 66, 76},
@@ -152,58 +152,61 @@ NoteAssemblerConfig MainWindow::configForPattern(const SubdivisionPattern& patte
 
     if (isTupletOrTriplet) {
         for (const SubdivisionPulse& p : pattern.pulses) {
+            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
             if (p.isRest)
-                cfg.noteTypes.push_back(ceilingRestTypeForDuration(p.duration));
+                cfg.noteTypes.push_back(ceilingRestTypeForDuration(d));
             else
-                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(p.duration));
+                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(d));
             cfg.dottedNotes.push_back(p.isDotted);
         }
     } else {
         for (const SubdivisionPulse& p : pattern.pulses) {
+            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
             if (p.isRest) {
                 if (isCompoundTime) {
                     // Compound time rest logic - exact matches first
-                    if (isClose(p.duration, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (isClose(p.duration, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);  // Dotted quarter rest
-                    else if (p.duration < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (p.duration < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else                                 cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+                    if (isClose(d, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+                    else if (isClose(d, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+                    else if (d < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+                    else if (d < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else                        cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
                 } else {
-                    // Simple time rest logic (unchanged)
-                    if (isClose(p.duration, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (isClose(p.duration, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-                    else if (isClose(p.duration, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                    else if (p.duration < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-                    else if (p.duration < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else                                 cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+                    // Simple time rest logic
+                    if (isClose(d, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+                    else if (isClose(d, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
+                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+                    else if (d < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
+                    else if (d < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+                    else                        cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
                 }
             } else {
                 if (isCompoundTime) {
-                    // Compound time note logic - distinguish between dotted quarter (1.0) and dotted eighth (2/3)
-                    if (isClose(p.duration, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Sixteenth); // 1/6 = sixteenth note
-                    else if (isClose(p.duration, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);    // 1/3 = eighth note
-                    else if (isClose(p.duration, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);    // 2/3 = dotted eighth (eighth note with dot)
-                    else if (isClose(p.duration, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);    // For other dotted eighth patterns
-                    else if (isClose(p.duration, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);   // 1.0 = dotted quarter (quarter note with dot)
-                    else if (p.duration < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (p.duration < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else                                 cfg.noteTypes.push_back(AssembledNoteType::Quarter);   // Fallback to quarter for full beat
+                    if (isClose(d, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+                    else if (isClose(d, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+                    else if (d < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+                    else if (d < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (d <= 2.0)          cfg.noteTypes.push_back(AssembledNoteType::Half);
+                    else                        cfg.noteTypes.push_back(AssembledNoteType::Whole);
                 } else {
-                    // Simple time note logic (unchanged)
-                    if (isClose(p.duration, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(p.duration, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (isClose(p.duration, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-                    else if (isClose(p.duration, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(p.duration, 0.75))  cfg.noteTypes.push_back(AssembledNoteType::Eighth); // DottedEighth if you add it
-                    else if (isClose(p.duration, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-                    else if (p.duration < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-                    else if (p.duration < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else                                 cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+                    if (isClose(d, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+                    else if (isClose(d, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
+                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 0.75))  cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+                    else if (d < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
+                    else if (d < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+                    else if (d <= 1.0)          cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+                    else if (d <= 2.0)          cfg.noteTypes.push_back(AssembledNoteType::Half);
+                    else                        cfg.noteTypes.push_back(AssembledNoteType::Whole);
                 }
             }
             cfg.dottedNotes.push_back(p.isDotted);
@@ -211,10 +214,27 @@ NoteAssemblerConfig MainWindow::configForPattern(const SubdivisionPattern& patte
     }
     cfg.beamed = pattern.pulses.size() > 1;
 
-    // --- FIX: Always check for triplets by name OR tuplets by category ---
+    // Check for triplets by name, category, or detected duration values
     bool isTriplet = pattern.name.toLower().contains("triplet");
     if (pattern.category == SubdivisionCategory::Tuplet || isTriplet) {
         cfg.tupletNumber = pattern.pulses.size();
+    } else if (!pattern.pulses.isEmpty()) {
+        auto isTripletDur = [](double d) {
+            return (std::abs(d - 1.0/3) < 0.005) ||
+                   (std::abs(d - 1.0/6) < 0.005) ||
+                   (std::abs(d - 2.0/3) < 0.005);
+        };
+        int tripletCount = 0;
+        for (const SubdivisionPulse& p : pattern.pulses)
+            if (isTripletDur(p.duration)) tripletCount++;
+        if (tripletCount == (int)pattern.pulses.size()) {
+            cfg.tupletNumber = pattern.pulses.size();
+        } else if (tripletCount > 0) {
+            cfg.perNoteTupletNumbers.assign(pattern.pulses.size(), 0);
+            for (int i = 0; i < (int)pattern.pulses.size(); ++i)
+                if (isTripletDur(pattern.pulses[i].duration))
+                    cfg.perNoteTupletNumbers[i] = 3;
+        }
     }
     return cfg;
 }
@@ -246,9 +266,6 @@ bool clickOk  = metronome.loadSample("click",  soundFileForSet(m_soundSet, false
 metronome.setAccentSound("accent");
 metronome.setClickSound("click");
 metronome.setVolume(1.0f);
-
-    connect(&metronome, &MetronomeEngine::pulse, this, &MainWindow::onMetronomePulse);
-
 
     QVBoxLayout* mainLayout = qobject_cast<QVBoxLayout*>(ui->centralwidget->layout());
 
@@ -292,13 +309,8 @@ metronome.setVolume(1.0f);
 
 
     connect(ui->btnStartStop, &QPushButton::clicked, this, &MainWindow::onStartStop);
-    connect(ui->spinTempo, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onTempoChanged);
     connect(ui->btnTapTempo, &QPushButton::clicked, this, &MainWindow::onTapTempo);
-    connect(ui->sliderTempo, &QSlider::valueChanged, this, &MainWindow::onTempoSliderChanged);
-    connect(ui->sliderTempo, QOverload<int>::of(&QSlider::valueChanged), this, &MainWindow::onTempoChanged);
     connect(ui->btnRenamePreset, &QPushButton::clicked, this, &MainWindow::onRenamePreset);
-    connect(ui->spinTempo, &QSpinBox::editingFinished, this, &MainWindow::onSpinTempoEditingFinished);
-    connect(ui->sliderTempo, &QSlider::sliderReleased, this, &MainWindow::onTempoSliderReleased);
     ui->verticalLayoutTimeSignature->setSpacing(0);
     ui->spinTempo->setAlignment(Qt::AlignCenter);
     ui->timeEditDuration->setAlignment(Qt::AlignCenter);
@@ -954,13 +966,6 @@ void MainWindow::setupAccentControls(int count) {
         connect(cb, &QCheckBox::checkStateChanged, this, &MainWindow::onAccentChanged);
         cb->setChecked(false); // Always reset to unchecked
     }
-
-    // --- PATCH: Also reset section accent data to all off ---
-    if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size()) {
-        auto& accents = currentPreset.sections[currentSectionIdx].accents;
-        accents.resize(accentCount, false);
-        std::fill(accents.begin(), accents.end(), false);
-    }
 }
 
 
@@ -1552,12 +1557,16 @@ void MainWindow::onAddSection()
     }
     s.label = QString("Section %1").arg(currentPreset.sections.size() + 1);
 
-    currentPreset.sections.push_back(s);
-    int idx = currentPreset.sections.size() - 1;
+    // Insert after the currently selected section (or at end if nothing is selected)
+    int insertIdx = (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size())
+                    ? currentSectionIdx + 1
+                    : (int)currentPreset.sections.size();
+    currentPreset.sections.insert(currentPreset.sections.begin() + insertIdx, s);
+    int idx = insertIdx;
 
     QSignalBlocker blocker(ui->tableSections);
 
-    ui->tableSections->setRowCount(currentPreset.sections.size());
+    ui->tableSections->insertRow(idx);
 
     QTableWidgetItem* labelItem = new QTableWidgetItem(s.label);
     labelItem->setFlags(labelItem->flags() | Qt::ItemIsEditable);
@@ -2115,22 +2124,10 @@ void MainWindow::onTempoChanged(int value) {
         if (currentSectionIdx >= 0 && currentSectionIdx < (int)currentPreset.sections.size())
             currentPreset.sections[currentSectionIdx].tempo = value;
 
-        // Only update the metronome's tempo if speed trainer is NOT active or metronome is stopped
-        if (metronome.isPolyrhythmEnabled() && metronome.isRunning()) {
-            metronome.armTempo(value);
-            // Do NOT call setTempo now
-        } else {
-            // NEW: Use stop/start for user-initiated changes (but reset bar counter)
-            if (metronome.isRunning() && !m_isSpeedTrainerAutoChange) {
-                metronome.stop();
-                metronome.setTempo(value);
-                metronome.start();
-                // Reset to bar 1 for user changes
-                m_playingBarCounter = 0;
-                m_lastBarIdx = 0;
-            } else if (!metronome.isRunning()) {
-                metronome.setTempo(value); // subdivision or stopped
-            }
+        // Apply tempo atomically: setTempo triggers updatePulseSchedule which queues
+        // the new schedule at the next buffer boundary — no stop/start required.
+        if (!m_isSpeedTrainerAutoChange || !metronome.isRunning()) {
+            metronome.setTempo(value);
         }
     }
     // If speed trainer is running and metronome is running, do NOT call setTempo here!
@@ -2212,7 +2209,7 @@ void MainWindow::onTapTempo() {
             intervals.append(tapTimes[i] - tapTimes[i - 1]);
         double avgInterval = std::accumulate(intervals.begin(), intervals.end(), 0.0) / intervals.size();
         int bpm = static_cast<int>(60000.0 / avgInterval + 0.5);
-        if (bpm < 20) bpm = 20;
+        if (bpm < 1) bpm = 1;
         if (bpm > 300) bpm = 300;
         ui->spinTempo->setValue(bpm);
     }

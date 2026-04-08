@@ -196,7 +196,11 @@ bool AudioEngine::start(double bpm) {
     }
     m_running.store(true);
     setBpm(bpm);
-    m_globalSamplePos = 0;
+    // Pre-roll: offset by one buffer period so the hardware has time to transition
+    // from silence to active output before the first beat fires.  WASAPI (and some
+    // other backends) produce a transient click on the very first samples written to
+    // a freshly-opened audio session; this tiny delay keeps the first beat clear of it.
+    m_globalSamplePos = -(int64_t)m_bufferFrames;
     m_pendingScheduleSwapSamplePos = -1;
     return true;
 }
@@ -414,8 +418,8 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
         }
     }
 
-    int bufferStartSample = m_globalSamplePos;
-    int bufferEndSample   = bufferStartSample + nBufferFrames;
+    int64_t bufferStartSample = m_globalSamplePos;
+    int64_t bufferEndSample   = bufferStartSample + int64_t(nBufferFrames);
 
     // --- SCHEDULE SWAP LOGIC ---
     if (m_flushedRecently && m_hasPendingSchedule) {
@@ -429,27 +433,27 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
         activeSamples.clear();
 
         int schedulePulseCount = static_cast<int>(m_pulseSchedule.size());
-        int barStart = m_globalSamplePos / m_scheduleLengthSamples;
-        int barSampleOffset = barStart * m_scheduleLengthSamples;
+        int64_t barStart = m_globalSamplePos / int64_t(m_scheduleLengthSamples);
+        int64_t barSampleOffset = barStart * int64_t(m_scheduleLengthSamples);
 
         // Set swap position for deduplication at boundary
         m_pendingScheduleSwapSamplePos = m_globalSamplePos;
 
         for (int pulseIdx = 0; pulseIdx < schedulePulseCount; ++pulseIdx) {
             AudioPulseEvent& ev = m_pulseSchedule[pulseIdx];
-            int pulseGlobal = barSampleOffset + ev.samplePosInBar;
+            int64_t pulseGlobal = barSampleOffset + int64_t(ev.samplePosInBar);
 
             // Skip pulse at swap boundary
             if (pulseGlobal == m_pendingScheduleSwapSamplePos) {
                 continue;
             }
 
-            if (pulseGlobal < m_globalSamplePos || pulseGlobal >= m_globalSamplePos + int(nBufferFrames))
+            if (pulseGlobal < m_globalSamplePos || pulseGlobal >= m_globalSamplePos + int64_t(nBufferFrames))
                 continue;
             if (ev.playPulse) {
                 PCMBuffer* buf = currentSample(ev.accent);
                 if (buf && buf->valid) {
-                    int outPos = pulseGlobal - m_globalSamplePos;
+                    int outPos = int(pulseGlobal - m_globalSamplePos);
                     activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
                 }
                 emitUiPulse(ev);
@@ -512,36 +516,30 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
     if (scheduleJustChanged) {
         for (int pulseIdx = 0; pulseIdx < schedulePulseCount; ++pulseIdx) {
             AudioPulseEvent& ev = m_pulseSchedule[pulseIdx];
-            int pulseGlobal = ev.samplePosInBar;
+            int64_t pulseGlobal = int64_t(ev.samplePosInBar);
 
             if (pulseGlobal < bufferStartSample || pulseGlobal >= bufferEndSample)
                 continue;
 
-            // Skip pulse at swap boundary if pending
             if (m_pendingScheduleSwapSamplePos >= 0 && pulseGlobal == m_pendingScheduleSwapSamplePos) {
                 m_pendingScheduleSwapSamplePos = -1;
                 continue;
             }
 
+            int outPos = int(pulseGlobal - bufferStartSample);
             if (ev.idx < 0 || ev.idx == -9999) {
-                // Count-in and gap events
                 if (ev.playPulse) {
                     PCMBuffer* buf = currentSample(ev.accent);
-                    if (buf && buf->valid) {
-                        int outPos = pulseGlobal - bufferStartSample;
+                    if (buf && buf->valid)
                         activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                    }
                     emitUiPulse(ev);
                 }
             } else {
-                // Main pattern pulses - play after offset
                 if (ev.samplePosInBar >= offsetSamples) {
                     if (ev.playPulse) {
                         PCMBuffer* buf = currentSample(ev.accent);
-                        if (buf && buf->valid) {
-                            int outPos = pulseGlobal - bufferStartSample;
+                        if (buf && buf->valid)
                             activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                        }
                         emitUiPulse(ev);
                     }
                 }
@@ -555,7 +553,7 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
             int barLengthSamples = int(m_barLengthSeconds * m_scheduleSampleRate);
             
             // FIXED: Use a set to track which sample positions we've already scheduled
-            std::set<int> scheduledSamples;
+            std::set<int64_t> scheduledSamples;
             
             for (int pulseIdx = 0; pulseIdx < schedulePulseCount; ++pulseIdx) {
                 AudioPulseEvent& ev = m_pulseSchedule[pulseIdx];
@@ -564,13 +562,13 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
                 // FIXED: Handle count-in events in polyrhythm mode
                 if (ev.idx < 0) {
                     // Count-in events - only play once at the beginning
-                    int pulseGlobal = basePosition;
+                    int64_t pulseGlobal = int64_t(basePosition);
                     if (pulseGlobal >= bufferStartSample && pulseGlobal < bufferEndSample && ev.playPulse) {
                         if (scheduledSamples.find(pulseGlobal) == scheduledSamples.end()) {
                             scheduledSamples.insert(pulseGlobal);
                             PCMBuffer* buf = currentSample(ev.accent);
                             if (buf && buf->valid) {
-                                int outPos = pulseGlobal - bufferStartSample;
+                                int outPos = int(pulseGlobal - bufferStartSample);
                                 if (outPos >= 0 && outPos < int(nBufferFrames)) {
                                     activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
                                 }
@@ -586,32 +584,28 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
                     continue;
                 }
                 
-                // FIXED: Only repeat main polyrhythm events (not count-in)
-                // Find the first bar that might contain pulses in our buffer
-                int barStart = 0;
-                // If we have count-in, start the pattern repetition after the count-in ends
-                if (hasCountIn) {
-                    barStart = countInEndSample;
-                }
-                
-                while (barStart + basePosition < bufferStartSample) {
-                    barStart += barLengthSamples;
-                }
-                
-                // Check a few bars from there
-                for (int i = 0; i < 5; ++i) {
-                    int pulseGlobal = barStart + basePosition;
-                    
+                // Compute starting bar index directly to avoid O(session_length) while-loop.
+                // Use float-computed bar positions to prevent cumulative timing drift.
+                int64_t baseOffset = hasCountIn ? int64_t(countInEndSample) : int64_t(0);
+                int64_t relBufferStart = int64_t(bufferStartSample) - baseOffset - int64_t(basePosition);
+                int64_t barIdx = (relBufferStart > 0) ? (relBufferStart / int64_t(barLengthSamples) - 1) : 0;
+                if (barIdx < 0) barIdx = 0;
+
+                for (int i = 0; i < 5; ++i, ++barIdx) {
+                    // Float-computed bar start to prevent per-bar integer truncation accumulation
+                    int64_t barStartSample = baseOffset + int64_t(std::round(double(barIdx) * m_barLengthSeconds * double(m_scheduleSampleRate)));
+                    int64_t pulseGlobal = barStartSample + int64_t(basePosition);
+
                     if (pulseGlobal >= bufferEndSample) break;
-                    
+
                     if (pulseGlobal >= bufferStartSample && ev.playPulse) {
                         // FIXED: Check if we've already scheduled this sample position
                         if (scheduledSamples.find(pulseGlobal) == scheduledSamples.end()) {
                             scheduledSamples.insert(pulseGlobal);
-                            
+
                             PCMBuffer* buf = currentSample(ev.accent);
                             if (buf && buf->valid) {
-                                int outPos = pulseGlobal - bufferStartSample;
+                                int outPos = int(pulseGlobal - bufferStartSample);
                                 if (outPos >= 0 && outPos < int(nBufferFrames)) {
                                     activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
                                 }
@@ -619,90 +613,82 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
                             emitUiPulse(ev);
                         }
                     }
-                    
-                    barStart += barLengthSamples;
                 }
             }
         } else {
-            // SUBDIVISION MODE: Calculate which cycles we need to process
-            int purePatternSamples = hasCountIn ? int(customPatternDuration * m_scheduleSampleRate) : scheduleSamples;
-            int maxCycles = (bufferEndSample / purePatternSamples) + 3; // Process extra cycles to be safe
-            
-            for (int cycle = 0; cycle <= maxCycles; ++cycle) {
-                int cycleStartSample;
-                
+            // SUBDIVISION MODE: Float-computed positions for drift-free timing.
+            // Each cycle's start is derived from bar length in seconds, not cumulative
+            // integer addition — this eliminates inter-bar drift over long sessions.
+            double purePatternDuration_s = hasCountIn ? customPatternDuration : m_barLengthSeconds;
+            // Guard: if count-in duration == bar duration, customPatternDuration is 0.
+            // Fall back to the bar length so cycles repeat at the correct rate.
+            if (purePatternDuration_s <= 0.0) purePatternDuration_s = m_barLengthSeconds;
+            int purePatternSamples = int(std::round(purePatternDuration_s * double(m_scheduleSampleRate)));
+            if (purePatternSamples <= 0) purePatternSamples = scheduleSamples;
+
+            // Tight cycle window: only check cycles that could overlap this buffer
+            int64_t startCycle = int64_t(bufferStartSample) / int64_t(purePatternSamples);
+            if (startCycle > 0) startCycle--;
+            int64_t endCycle = int64_t(bufferEndSample) / int64_t(purePatternSamples) + 2;
+
+            for (int64_t cycle = startCycle; cycle <= endCycle; ++cycle) {
+                int64_t cycleStartSample;
+
                 if (cycle == 0) {
-                    // First cycle - starts at 0
                     cycleStartSample = 0;
                 } else if (hasCountIn) {
-                    // FIXED: Use only the pattern duration for subsequent cycles, not count-in + pattern
-                    cycleStartSample = countInEndSample + (cycle * purePatternSamples);
+                    // Float-computed position from cycle start to eliminate cumulative integer drift
+                    cycleStartSample = int64_t(countInEndSample) +
+                        int64_t(std::round(double(cycle) * purePatternDuration_s * double(m_scheduleSampleRate)));
                 } else {
-                    // No count-in - regular calculation
-                    cycleStartSample = cycle * scheduleSamples;
+                    // Float-computed absolute position for drift-free beat placement
+                    cycleStartSample = int64_t(std::round(double(cycle) * m_barLengthSeconds * double(m_scheduleSampleRate)));
                 }
 
                 for (int pulseIdx = 0; pulseIdx < schedulePulseCount; ++pulseIdx) {
                     AudioPulseEvent& ev = m_pulseSchedule[pulseIdx];
-                    int pulseGlobal;
+                    int64_t pulseGlobal;
 
                     if (cycle == 0) {
-                        // First cycle - use original positions (includes count-in for count-in enabled scenarios)
-                        pulseGlobal = ev.samplePosInBar;
+                        pulseGlobal = int64_t(ev.samplePosInBar);
                     } else {
-                        // Subsequent cycles - only play main pattern pulses, positioned relative to cycle start
-                        if (ev.idx < 0 || ev.idx == -9999) {
-                            continue; // Skip count-in and gap events
-                        }
-                        
-                        // FIXED: Calculate position using the pattern-only timing
-                        // For custom subdivisions, subtract the count-in offset to get pattern-relative position
-                        int patternRelativePosition = hasCountIn ? (ev.samplePosInBar - countInEndSample) : ev.samplePosInBar;
-                        pulseGlobal = cycleStartSample + patternRelativePosition;
+                        if (ev.idx < 0 || ev.idx == -9999) continue;
+                        int64_t patternRelPos = hasCountIn ? int64_t(ev.samplePosInBar - countInEndSample)
+                                                           : int64_t(ev.samplePosInBar);
+                        pulseGlobal = cycleStartSample + patternRelPos;
                     }
 
                     if (pulseGlobal < bufferStartSample || pulseGlobal >= bufferEndSample)
                         continue;
 
-                    // Skip pulse at swap boundary if pending
                     if (m_pendingScheduleSwapSamplePos >= 0 && pulseGlobal == m_pendingScheduleSwapSamplePos) {
                         m_pendingScheduleSwapSamplePos = -1;
                         continue;
                     }
 
+                    int outPos = int(pulseGlobal - bufferStartSample);
+
                     if (cycle == 0) {
-                        // First cycle - play everything as scheduled
                         if (ev.idx < 0) {
-                            // Count-in pulses
                             if (ev.playPulse) {
                                 PCMBuffer* buf = currentSample(ev.accent);
-                                if (buf && buf->valid) {
-                                    int outPos = pulseGlobal - bufferStartSample;
+                                if (buf && buf->valid)
                                     activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                                }
                                 emitUiPulse(ev);
                             }
                         } else {
-                            // Main pattern pulses in first cycle - only play after count-in
                             if (ev.samplePosInBar >= offsetSamples && ev.playPulse) {
                                 PCMBuffer* buf = currentSample(ev.accent);
-                                if (buf && buf->valid) {
-                                    int outPos = pulseGlobal - bufferStartSample;
+                                if (buf && buf->valid)
                                     activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                                }
-                                
                             }
                             emitUiPulse(ev);
                         }
                     } else {
-                        // Subsequent cycles - only play main pattern
                         if (ev.idx >= 0 && ev.idx != -9999 && ev.playPulse) {
                             PCMBuffer* buf = currentSample(ev.accent);
-                            if (buf && buf->valid) {
-                                int outPos = pulseGlobal - bufferStartSample;
+                            if (buf && buf->valid)
                                 activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                            }
-                            
                         }
                         emitUiPulse(ev);
                     }
@@ -775,30 +761,37 @@ bool AudioEngine::initializeDevice(double bpm) {
         return false;
     }
 
-    if (m_device.sampleRate != m_sampleRate) {
-        int oldRate = m_sampleRate;
-        m_sampleRate = m_device.sampleRate;
-        qDebug() << "AudioEngine: Device adjusted sample rate to:" << m_sampleRate << "Hz (init only)";
-
-        // RELOAD any already-loaded samples so their data matches new device rate
+    // ALWAYS reload samples whose stored rate doesn't match the actual device rate.
+    // This must be unconditional because detectBestSampleRate() pre-assigns m_sampleRate
+    // to the detected rate before we get here, so the old guard
+    // (if m_device.sampleRate != m_sampleRate) was always false — samples loaded at the
+    // constructor default of 44100 would silently stay at 44100 even when the device runs
+    // at 48000, causing a pitch shift on first play.
+    {
+        int deviceRate = (int)m_device.sampleRate;
         QMutexLocker sampleLock(&m_sampleMutex);
         for (auto it = m_samples.begin(); it != m_samples.end(); ++it) {
             PCMBuffer &buf = it.value();
-            if (buf.valid && buf.sampleRate != m_sampleRate) {
+            if (buf.valid && buf.sampleRate != deviceRate) {
+                qDebug() << "AudioEngine: Reloading sample" << it.key()
+                         << "from" << buf.sampleRate << "Hz to" << deviceRate << "Hz";
                 if (!buf.resourcePath.isEmpty()) {
-                    bool ok = buf.reloadForDevice(m_sampleRate);
-                    if (!ok) {
-                        // Fallback to in-place resample if reload failed
-                        buf.resampleTo(m_sampleRate);
-                    }
+                    bool ok = buf.reloadForDevice(deviceRate);
+                    if (!ok) buf.resampleTo(deviceRate);
                 } else {
-                    buf.resampleTo(m_sampleRate);
+                    buf.resampleTo(deviceRate);
                 }
             }
         }
+        if (m_sampleRate != deviceRate)
+            qDebug() << "AudioEngine: Device actual rate:" << deviceRate << "Hz";
+        m_sampleRate = deviceRate;
     }
 
     m_deviceInitialized = true;
+    // Capture the actual device period size so the pre-roll in start() is exactly right
+    if (m_device.playback.internalPeriodSizeInFrames > 0)
+        m_bufferFrames = (int)m_device.playback.internalPeriodSizeInFrames;
     m_globalSamplePos = 0; // Defensive
     return true;
 }

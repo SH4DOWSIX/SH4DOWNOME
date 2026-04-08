@@ -248,58 +248,59 @@ NoteAssemblerConfig SubdivisionSelectorDialog::configForPattern(const Subdivisio
 
     if (isTupletOrTriplet) {
         for (const SubdivisionPulse& p : pattern.pulses) {
+            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
             if (p.isRest)
-                cfg.noteTypes.push_back(ceilingRestTypeForDuration(p.duration));
+                cfg.noteTypes.push_back(ceilingRestTypeForDuration(d));
             else
-                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(p.duration));
+                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(d));
             cfg.dottedNotes.push_back(p.isDotted);
         }
     } else {
         for (const SubdivisionPulse& p : pattern.pulses) {
+            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
             if (p.isRest) {
                 if (isCompoundTime) {
-                    // Compound time rest logic - exact matches first
-                    if (isClose(p.duration, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (isClose(p.duration, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);    // 2/3 = dotted eighth rest
-                    else if (isClose(p.duration, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);  // 1.0 = dotted quarter rest
-                    else if (p.duration < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (p.duration < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else                                 cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+                    if (isClose(d, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+                    else if (isClose(d, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+                    else if (d < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+                    else if (d < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else                        cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
                 } else {
-                    // Simple time rest logic
-                    if (isClose(p.duration, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (isClose(p.duration, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-                    else if (isClose(p.duration, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(p.duration, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                    else if (p.duration < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-                    else if (p.duration < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else                                 cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+                    if (isClose(d, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+                    else if (isClose(d, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
+                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+                    else if (d < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
+                    else if (d < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+                    else                        cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
                 }
             } else {
                 if (isCompoundTime) {
-                    // Compound time note logic - distinguish between dotted quarter (1.0) and dotted eighth (2/3)
-                    if (isClose(p.duration, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Sixteenth); // 1/6 = sixteenth note
-                    else if (isClose(p.duration, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);    // 1/3 = eighth note  
-                    else if (isClose(p.duration, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);    // 2/3 = dotted eighth (eighth note with dot)
-                    else if (isClose(p.duration, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);    // For other dotted eighth patterns
-                    else if (isClose(p.duration, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);   // 1.0 = dotted quarter (quarter note with dot)
-                    else if (p.duration < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (p.duration < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else                                 cfg.noteTypes.push_back(AssembledNoteType::Quarter);   // Fallback to quarter for full beat
+                    if (isClose(d, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+                    else if (isClose(d, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+                    else if (d < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+                    else if (d < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (d <= 2.0)          cfg.noteTypes.push_back(AssembledNoteType::Half);
+                    else                        cfg.noteTypes.push_back(AssembledNoteType::Whole);
                 } else {
-                    // Simple time note logic
-                    if (isClose(p.duration, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(p.duration, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (isClose(p.duration, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-                    else if (isClose(p.duration, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(p.duration, 0.75))  cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(p.duration, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-                    else if (p.duration < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-                    else if (p.duration < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else                                 cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+                    if (isClose(d, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+                    else if (isClose(d, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
+                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 0.75))  cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+                    else if (d < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
+                    else if (d < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+                    else if (d <= 1.0)          cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+                    else if (d <= 2.0)          cfg.noteTypes.push_back(AssembledNoteType::Half);
+                    else                        cfg.noteTypes.push_back(AssembledNoteType::Whole);
                 }
             }
             cfg.dottedNotes.push_back(p.isDotted);
@@ -307,10 +308,27 @@ NoteAssemblerConfig SubdivisionSelectorDialog::configForPattern(const Subdivisio
     }
     cfg.beamed = pattern.pulses.size() > 1;
 
-    // --- FIX: Always check for triplets by name OR tuplets by category ---
+    // Check for triplets by name, category, or detected duration values
     bool isTriplet = pattern.name.toLower().contains("triplet");
     if (pattern.category == SubdivisionCategory::Tuplet || isTriplet) {
         cfg.tupletNumber = pattern.pulses.size();
+    } else if (!pattern.pulses.isEmpty()) {
+        auto isTripletDur = [](double d) {
+            return (std::abs(d - 1.0/3) < 0.005) ||
+                   (std::abs(d - 1.0/6) < 0.005) ||
+                   (std::abs(d - 2.0/3) < 0.005);
+        };
+        int tripletCount = 0;
+        for (const SubdivisionPulse& p : pattern.pulses)
+            if (isTripletDur(p.duration)) tripletCount++;
+        if (tripletCount == (int)pattern.pulses.size()) {
+            cfg.tupletNumber = pattern.pulses.size();
+        } else if (tripletCount > 0) {
+            cfg.perNoteTupletNumbers.assign(pattern.pulses.size(), 0);
+            for (int i = 0; i < (int)pattern.pulses.size(); ++i)
+                if (isTripletDur(pattern.pulses[i].duration))
+                    cfg.perNoteTupletNumbers[i] = 3;
+        }
     }
     return cfg;
 }

@@ -22,6 +22,14 @@ QString getDurationName(double duration) {
     if (qAbs(duration - 0.1667) < 0.001) return "Triplet 16th";
     if (qAbs(duration - 0.125) < 0.001) return "Thirty-second";
     if (qAbs(duration - 0.0625) < 0.001) return "Sixty-fourth";
+    // Dotted note names (stored duration = base * 1.5)
+    if (qAbs(duration - 6.0)    < 0.01) return "Dot Whole";
+    if (qAbs(duration - 3.0)    < 0.01) return "Dot Half";
+    if (qAbs(duration - 1.5)    < 0.01) return "Dot Qtr";
+    if (qAbs(duration - 0.75)   < 0.01) return "Dot 8th";
+    if (qAbs(duration - 0.375)  < 0.01) return "Dot 16th";
+    if (qAbs(duration - 0.1875) < 0.01) return "Dot 32nd";
+    if (qAbs(duration - 0.09375) < 0.005) return "Dot 64th";
     return QString::number(duration, 'f', 3);
 }
 
@@ -108,28 +116,37 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
     cfg.centerVertically = true;
 
     // Convert pulse to proper note type (expanded logic)
+    // If dotted, the stored duration is base*1.5 — divide back to get the base note type for glyph selection
+    double lookupDur = (m_pulse.isDotted && m_pulse.duration > 0) ? m_pulse.duration / 1.5 : m_pulse.duration;
+
+    // Triplet durations: 1/3 ≈ 0.3333 (triplet eighth), 1/6 ≈ 0.1667 (triplet sixteenth), 2/3 ≈ 0.6667 (triplet quarter)
+    auto isTripletDuration = [](double d) {
+        return (std::abs(d - 1.0/3) < 0.005) || (std::abs(d - 1.0/6) < 0.005) || (std::abs(d - 2.0/3) < 0.005);
+    };
+    if (isTripletDuration(lookupDur)) cfg.tupletNumber = 3;
+
     if (m_pulse.isRest) {
-        if (m_pulse.duration <= 0.0625) cfg.noteTypes.push_back(AssembledNoteType::Rest_SixtyFourth);
-        else if (m_pulse.duration <= 0.125) cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-        else if (m_pulse.duration <= 0.1667) cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-        else if (m_pulse.duration <= 0.25) cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-        else if (m_pulse.duration <= 0.3333) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-        else if (m_pulse.duration <= 0.5) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-        else if (m_pulse.duration <= 0.6667) cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-        else if (m_pulse.duration <= 1.0) cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-        else if (m_pulse.duration <= 2.0) cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-        else cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+        if (lookupDur <= 0.0625)      cfg.noteTypes.push_back(AssembledNoteType::Rest_SixtyFourth);
+        else if (lookupDur <= 0.125)  cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
+        else if (lookupDur <= 0.1667) cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+        else if (lookupDur <= 0.25)   cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
+        else if (lookupDur <= 0.3333) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+        else if (lookupDur <= 0.5)    cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
+        else if (lookupDur <= 0.6667) cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+        else if (lookupDur <= 1.0)    cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+        else if (lookupDur <= 2.0)    cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
+        else                           cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
     } else {
-        if (m_pulse.duration <= 0.0625) cfg.noteTypes.push_back(AssembledNoteType::SixtyFourth);
-        else if (m_pulse.duration <= 0.125) cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-        else if (m_pulse.duration <= 0.1667) cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-        else if (m_pulse.duration <= 0.25) cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-        else if (m_pulse.duration <= 0.3333) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-        else if (m_pulse.duration <= 0.5) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-        else if (m_pulse.duration <= 0.6667) cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-        else if (m_pulse.duration <= 1.0) cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-        else if (m_pulse.duration <= 2.0) cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-        else cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+        if (lookupDur <= 0.0625)      cfg.noteTypes.push_back(AssembledNoteType::SixtyFourth);
+        else if (lookupDur <= 0.125)  cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
+        else if (lookupDur <= 0.1667) cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+        else if (lookupDur <= 0.25)   cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
+        else if (lookupDur <= 0.3333) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+        else if (lookupDur <= 0.5)    cfg.noteTypes.push_back(AssembledNoteType::Eighth);
+        else if (lookupDur <= 0.6667) cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+        else if (lookupDur <= 1.0)    cfg.noteTypes.push_back(AssembledNoteType::Quarter);
+        else if (lookupDur <= 2.0)    cfg.noteTypes.push_back(AssembledNoteType::Half);
+        else                           cfg.noteTypes.push_back(AssembledNoteType::Whole);
     }
     cfg.dottedNotes.push_back(m_pulse.isDotted);
     cfg.beamed = false; // Individual notes don't show beams
@@ -137,12 +154,14 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
     // Generate the note pixmap
     QPixmap notePixmap = assembler.assembleNote(cfg);
 
-    // Draw the note in the center of the widget
-    QRect contentRect = rect().adjusted(4, 4, -4, -4);
-    QRect noteRect = notePixmap.rect();
-    noteRect.moveCenter(contentRect.center());
-
-    p.drawPixmap(noteRect, notePixmap);
+    // Draw the note scaled to fit the content area (reserves gap above text)
+    const int textAreaH = 12;
+    const int textGap   = 4;
+    QRect contentRect = rect().adjusted(4, 4, -4, -(textAreaH + textGap));
+    QPixmap scaledNote = notePixmap.scaled(contentRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QRect noteRect = scaledNote.rect();
+    noteRect.moveTopLeft(QPoint(contentRect.center().x() - noteRect.width() / 2, contentRect.top()));
+    p.drawPixmap(noteRect, scaledNote);
 
     // Duration indicator at bottom (smaller text)
     p.setPen(Qt::white);
@@ -150,7 +169,7 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
     smallFont.setPointSize(6);
     p.setFont(smallFont);
     QString durText = getDurationName(m_pulse.duration);
-    if (durText.length() > 7) durText = durText.left(4) + "..";
+    if (durText.length() > 9) durText = durText.left(6) + "..";
     p.drawText(rect().adjusted(2, 0, -2, -2), Qt::AlignBottom | Qt::AlignHCenter, durText);
 }
 
@@ -195,7 +214,7 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidget(m_pulseContainer);
     m_scrollArea->setWidgetResizable(true);
-    m_scrollArea->setFixedHeight(80);
+    m_scrollArea->setFixedHeight(100);
     m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     pulseGroupLayout->addWidget(m_scrollArea);
@@ -274,7 +293,7 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     // Preview
     m_previewLabel = new QLabel(this);
     m_previewLabel->setAlignment(Qt::AlignCenter);
-    m_previewLabel->setFixedSize(625, 60);  // Fixed size - can't grow!
+    m_previewLabel->setFixedSize(625, 80);
     m_previewLabel->setStyleSheet("border: 1px solid gray; background: #2a2a2a;");
     mainLayout->addWidget(m_previewLabel);
 
@@ -336,7 +355,9 @@ NoteAssemblerConfig CustomSubdivisionDialog::configForPattern(const SubdivisionP
             if (dur <= 1.0/6)        return AssembledNoteType::Sixteenth;
             if (dur <= 1.0/3)        return AssembledNoteType::Eighth;
             if (dur <= 2.0/3)        return AssembledNoteType::Eighth;
-            return AssembledNoteType::Quarter;
+            if (dur <= 1.0)          return AssembledNoteType::Quarter;
+            if (dur <= 2.0)          return AssembledNoteType::Half;
+            return AssembledNoteType::Whole;
         } else {
             if (dur <= 0.0625)   return AssembledNoteType::SixtyFourth;
             if (dur <= 0.125)    return AssembledNoteType::ThirtySecond;
@@ -345,7 +366,9 @@ NoteAssemblerConfig CustomSubdivisionDialog::configForPattern(const SubdivisionP
             if (dur <= 0.3333)   return AssembledNoteType::Eighth;
             if (dur <= 0.5)      return AssembledNoteType::Eighth;
             if (dur <= 0.6667)   return AssembledNoteType::Quarter;
-            return AssembledNoteType::Quarter;
+            if (dur <= 1.0)      return AssembledNoteType::Quarter;
+            if (dur <= 2.0)      return AssembledNoteType::Half;
+            return AssembledNoteType::Whole;
         }
     };
 
@@ -373,18 +396,20 @@ NoteAssemblerConfig CustomSubdivisionDialog::configForPattern(const SubdivisionP
 
     if (isTupletOrTriplet) {
         for (const SubdivisionPulse& p : pattern.pulses) {
+            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
             if (p.isRest)
-                cfg.noteTypes.push_back(ceilingRestTypeForDuration(p.duration));
+                cfg.noteTypes.push_back(ceilingRestTypeForDuration(d));
             else
-                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(p.duration));
+                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(d));
             cfg.dottedNotes.push_back(p.isDotted);
         }
     } else {
         for (const SubdivisionPulse& p : pattern.pulses) {
+            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
             if (p.isRest) {
-                cfg.noteTypes.push_back(ceilingRestTypeForDuration(p.duration));
+                cfg.noteTypes.push_back(ceilingRestTypeForDuration(d));
             } else {
-                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(p.duration));
+                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(d));
             }
             cfg.dottedNotes.push_back(p.isDotted);
         }
@@ -394,6 +419,27 @@ NoteAssemblerConfig CustomSubdivisionDialog::configForPattern(const SubdivisionP
     bool isTriplet = pattern.name.toLower().contains("triplet");
     if (pattern.category == SubdivisionCategory::Tuplet || isTriplet) {
         cfg.tupletNumber = pattern.pulses.size();
+    } else if (!pattern.pulses.isEmpty()) {
+        // Detect triplet-duration notes in Custom patterns
+        auto isTripletDur = [](double d) {
+            return (std::abs(d - 1.0/3) < 0.005) ||
+                   (std::abs(d - 1.0/6) < 0.005) ||
+                   (std::abs(d - 2.0/3) < 0.005);
+        };
+        int tripletCount = 0;
+        for (const SubdivisionPulse& p : pattern.pulses)
+            if (isTripletDur(p.duration)) tripletCount++;
+
+        if (tripletCount == (int)pattern.pulses.size()) {
+            // All notes are triplet duration: draw a single group bracket + number
+            cfg.tupletNumber = pattern.pulses.size();
+        } else if (tripletCount > 0) {
+            // Mixed: mark each individual triplet note with its own number
+            cfg.perNoteTupletNumbers.assign(pattern.pulses.size(), 0);
+            for (int i = 0; i < (int)pattern.pulses.size(); ++i)
+                if (isTripletDur(pattern.pulses[i].duration))
+                    cfg.perNoteTupletNumbers[i] = 3;
+        }
     }
     return cfg;
 }
@@ -487,9 +533,11 @@ void CustomSubdivisionDialog::updateControls() {
 
     if (hasSelection) {
         const SubdivisionPulse& pulse = m_pattern.pulses[m_selectedPulseIndex];
+        // If dotted, the stored duration is base*1.5 — divide back to find the base combo index
+        double lookupDuration = pulse.isDotted ? pulse.duration / 1.5 : pulse.duration;
         int durationIndex = 7; // default to "Quarter"
         for (int i = 0; i < DURATION_VALUES.size(); ++i) {
-            if (qAbs(pulse.duration - DURATION_VALUES[i]) < 0.001) {
+            if (qAbs(lookupDuration - DURATION_VALUES[i]) < 0.001) {
                 durationIndex = i;
                 break;
             }
@@ -522,8 +570,11 @@ void CustomSubdivisionDialog::updatePreview() {
 
     QPixmap preview = assembler.assembleNote(cfg);
 
-    QPixmap scaledPreview = preview.scaled(m_previewLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    // Scale to fit the label width but cap height to 60px so the notes don't grow with the taller label
+    QSize scaleTarget(m_previewLabel->width(), 60);
+    QPixmap scaledPreview = preview.scaled(scaleTarget, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     m_previewLabel->setPixmap(scaledPreview);
+    m_previewLabel->setAlignment(Qt::AlignBottom | Qt::AlignHCenter);
     m_previewLabel->setText("");
 }
 
@@ -541,9 +592,10 @@ void CustomSubdivisionDialog::updateOkButtonState() {
 void CustomSubdivisionDialog::onAddPulse() {
     SubdivisionPulse newPulse;
     int idx = m_durationCombo->currentIndex();
-    newPulse.duration = DURATION_VALUES[idx];
+    bool dotted = m_dottedButton->isChecked();
+    newPulse.duration = DURATION_VALUES[idx] * (dotted ? 1.5 : 1.0);
     newPulse.isRest = m_restButton->isChecked();
-    newPulse.isDotted = m_dottedButton->isChecked();
+    newPulse.isDotted = dotted;
     newPulse.accent = m_accentedButton->isChecked();
 
     m_pattern.pulses.append(newPulse);
@@ -574,7 +626,8 @@ void CustomSubdivisionDialog::onPulseClicked() {
 void CustomSubdivisionDialog::onDurationChanged() {
     if (m_selectedPulseIndex >= 0 && m_selectedPulseIndex < m_pattern.pulses.size()) {
         int idx = m_durationCombo->currentIndex();
-        m_pattern.pulses[m_selectedPulseIndex].duration = DURATION_VALUES[idx];
+        bool isDotted = m_pattern.pulses[m_selectedPulseIndex].isDotted;
+        m_pattern.pulses[m_selectedPulseIndex].duration = DURATION_VALUES[idx] * (isDotted ? 1.5 : 1.0);
         m_durationLabel->setText(DURATION_NAMES[idx]);
         m_pulseWidgets[m_selectedPulseIndex]->setPulse(m_pattern.pulses[m_selectedPulseIndex]);
         updatePreview();
@@ -583,8 +636,14 @@ void CustomSubdivisionDialog::onDurationChanged() {
 
 void CustomSubdivisionDialog::onTypeChanged() {
     if (m_selectedPulseIndex >= 0 && m_selectedPulseIndex < m_pattern.pulses.size()) {
+        bool wasDotted = m_pattern.pulses[m_selectedPulseIndex].isDotted;
+        bool nowDotted = m_dottedButton->isChecked();
+        if (nowDotted != wasDotted) {
+            // Adjust the stored duration to include or exclude the 1.5 multiplier
+            m_pattern.pulses[m_selectedPulseIndex].duration *= nowDotted ? 1.5 : (1.0 / 1.5);
+        }
         m_pattern.pulses[m_selectedPulseIndex].isRest = m_restButton->isChecked();
-        m_pattern.pulses[m_selectedPulseIndex].isDotted = m_dottedButton->isChecked();
+        m_pattern.pulses[m_selectedPulseIndex].isDotted = nowDotted;
         m_pattern.pulses[m_selectedPulseIndex].accent = m_accentedButton->isChecked();
 
         m_pulseWidgets[m_selectedPulseIndex]->setPulse(m_pattern.pulses[m_selectedPulseIndex]);

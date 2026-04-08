@@ -35,6 +35,7 @@ struct NoteAssemblerConfig {
     // NEW: Use this to specify which notes are dotted (true = dot after this note)
     std::vector<bool> dottedNotes;
     std::vector<AssembledNoteType> noteTypes; // NEW: per-note types in group
+    std::vector<int> perNoteTupletNumbers;    // per-note tuplet marker (0 = none, 3 = triplet, etc.)
 };
 
 class NoteAssembler {
