@@ -34,5 +34,6 @@ Feature packed Metronome App for Windows.
 ## Known Issues
 
 - Custom Subdivisions are in an early state of development.
+- Some Subdivisions look a little funky.
 
 ![](images/16.png)  ![](images/15.png)
