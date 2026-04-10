@@ -24,20 +24,36 @@
 
 namespace {
 
-// Example patterns for demo. Expand as needed!
-// Update the pattern definitions in subdivisionselectordialog.cpp
+// Helper to build a SubdivisionPulse quickly
+static SubdivisionPulse P(NoteValue nv, bool rest = false, bool accent = false) {
+    return {nv, rest, accent};
+}
 
 QVector<SubdivisionPattern> getStandardPatterns(bool compound) {
     QVector<SubdivisionPattern> v;
     if (!compound) {
-        v << SubdivisionPattern{SubdivisionCategory::Standard, "Quarter Note", {{1.0, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Standard, "Eighth Notes", {{0.5, false, false, false}, {0.5, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Standard, "Sixteenth Notes", {{0.25, false, false, false}, {0.25, false, false, false}, {0.25, false, false, false}, {0.25, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Standard, "Eighth Triplets", {{1.0/3, false, false, false}, {1.0/3, false, false, false}, {1.0/3, false, false, false}}};
+        v << SubdivisionPattern{SubdivisionCategory::Standard, "Quarter Note",
+                {P(NoteValue::Quarter)}}
+          << SubdivisionPattern{SubdivisionCategory::Standard, "Eighth Notes",
+                {P(NoteValue::Eighth), P(NoteValue::Eighth)}}
+          << SubdivisionPattern{SubdivisionCategory::Standard, "Sixteenth Notes",
+                {P(NoteValue::Sixteenth), P(NoteValue::Sixteenth),
+                 P(NoteValue::Sixteenth), P(NoteValue::Sixteenth)}}
+          << SubdivisionPattern{SubdivisionCategory::Standard, "Eighth Triplets",
+                {P(NoteValue::TripletEighth), P(NoteValue::TripletEighth),
+                 P(NoteValue::TripletEighth)}}
+          << SubdivisionPattern{SubdivisionCategory::Standard, "Sixteenth Triplets",
+                {P(NoteValue::TripletSixteenth), P(NoteValue::TripletSixteenth),
+                 P(NoteValue::TripletSixteenth), P(NoteValue::TripletSixteenth),
+                 P(NoteValue::TripletSixteenth), P(NoteValue::TripletSixteenth)}};
     } else {
-        v << SubdivisionPattern{SubdivisionCategory::Standard, "Dotted Quarter", {{1.0, false, false, true}}}
-          << SubdivisionPattern{SubdivisionCategory::Standard, "Eighths (3 per beat)", {{1.0/3, false, false, false}, {1.0/3, false, false, false}, {1.0/3, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Standard, "Sixteenths (6 per beat)", {{1.0/6, false, false, false}, {1.0/6, false, false, false}, {1.0/6, false, false, false}, {1.0/6, false, false, false}, {1.0/6, false, false, false}, {1.0/6, false, false, false}}};
+        v << SubdivisionPattern{SubdivisionCategory::Standard, "Dotted Quarter",
+                {P(NoteValue::DottedQuarter)}}
+          << SubdivisionPattern{SubdivisionCategory::Standard, "Eighths (3 per beat)",
+                {P(NoteValue::Eighth), P(NoteValue::Eighth), P(NoteValue::Eighth)}}
+          << SubdivisionPattern{SubdivisionCategory::Standard, "Sixteenths (6 per beat)",
+                {P(NoteValue::Sixteenth), P(NoteValue::Sixteenth), P(NoteValue::Sixteenth),
+                 P(NoteValue::Sixteenth), P(NoteValue::Sixteenth), P(NoteValue::Sixteenth)}};
     }
     return v;
 }
@@ -45,18 +61,41 @@ QVector<SubdivisionPattern> getStandardPatterns(bool compound) {
 QVector<SubdivisionPattern> getCompositePatterns(bool compound) {
     QVector<SubdivisionPattern> v;
     if (!compound) {
-        v << SubdivisionPattern{SubdivisionCategory::Composite, "Eighth + Two Sixteenths", {{0.5, false, false, false}, {0.25, false, false, false}, {0.25, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Composite, "Two Sixteenths + Eighth", {{0.25, false, false, false}, {0.25, false, false, false}, {0.5, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Composite, "Sixteenth + Eighth + Sixteenth", {{0.25, false, false, false}, {0.5, false, false, false}, {0.25, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Composite, "Dotted Eighth + Sixteenth", {{0.75, false, false, true}, {0.25, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Composite, "Sixteenth + Dotted Eighth", {{0.25, false, false, false}, {0.75, false, false, true}}};
+        // Each pattern sums to exactly one quarter-note beat
+        v << SubdivisionPattern{SubdivisionCategory::Composite, "Eighth + Two Sixteenths",
+                {P(NoteValue::Eighth), P(NoteValue::Sixteenth), P(NoteValue::Sixteenth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Two Sixteenths + Eighth",
+                {P(NoteValue::Sixteenth), P(NoteValue::Sixteenth), P(NoteValue::Eighth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Sixteenth + Eighth + Sixteenth",
+                {P(NoteValue::Sixteenth), P(NoteValue::Eighth), P(NoteValue::Sixteenth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Dotted Eighth + Sixteenth",
+                {P(NoteValue::DottedEighth), P(NoteValue::Sixteenth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Sixteenth + Dotted Eighth",
+                {P(NoteValue::Sixteenth), P(NoteValue::DottedEighth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Dotted Eighth + Two 32nds",
+                {P(NoteValue::DottedEighth), P(NoteValue::ThirtySecond), P(NoteValue::ThirtySecond)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Two 32nds + Dotted Eighth",
+                {P(NoteValue::ThirtySecond), P(NoteValue::ThirtySecond), P(NoteValue::DottedEighth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "32nd + Dotted Eighth + 32nd",
+                {P(NoteValue::ThirtySecond), P(NoteValue::DottedEighth), P(NoteValue::ThirtySecond)}};
     } else {
-        v
-          // CORRECTED: In compound time, use dotted eighth + eighth instead of "quarter"
-          << SubdivisionPattern{SubdivisionCategory::Composite, "Dotted Eighth + Eighth", {{2.0/3, false, false, true}, {1.0/3, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Composite, "Eighth + Dotted Eighth", {{1.0/3, false, false, false}, {2.0/3, false, false, true}}}
-          << SubdivisionPattern{SubdivisionCategory::Composite, "Dotted Eighth + Sixteenth", {{0.5, false, false, true}, {1.0/6, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Composite, "Sixteenth + Dotted Eighth", {{1.0/6, false, false, false}, {0.5, false, false, true}}};
+        // Each pattern sums to exactly one dotted-quarter beat (= Quarter + Eighth)
+        v << SubdivisionPattern{SubdivisionCategory::Composite, "Quarter + Eighth",
+                {P(NoteValue::Quarter), P(NoteValue::Eighth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Eighth + Quarter",
+                {P(NoteValue::Eighth), P(NoteValue::Quarter)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Dotted Eighth + Sixteenth + Eighth",
+                {P(NoteValue::DottedEighth), P(NoteValue::Sixteenth), P(NoteValue::Eighth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Sixteenth + Quarter + Sixteenth",
+                {P(NoteValue::Sixteenth), P(NoteValue::Quarter), P(NoteValue::Sixteenth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Quarter + Two Sixteenths",
+                {P(NoteValue::Quarter), P(NoteValue::Sixteenth), P(NoteValue::Sixteenth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Two Sixteenths + Quarter",
+                {P(NoteValue::Sixteenth), P(NoteValue::Sixteenth), P(NoteValue::Quarter)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Eighth + Dotted Eighth + Sixteenth",
+                {P(NoteValue::Eighth), P(NoteValue::DottedEighth), P(NoteValue::Sixteenth)}}
+          << SubdivisionPattern{SubdivisionCategory::Composite, "Sixteenth + Dotted Eighth + Eighth",
+                {P(NoteValue::Sixteenth), P(NoteValue::DottedEighth), P(NoteValue::Eighth)}};
     }
     return v;
 }
@@ -64,18 +103,30 @@ QVector<SubdivisionPattern> getCompositePatterns(bool compound) {
 QVector<SubdivisionPattern> getTupletPatterns(bool compound) {
     QVector<SubdivisionPattern> v;
     if (!compound) {
-        v << SubdivisionPattern{SubdivisionCategory::Tuplet, "Quintuplets", {{0.2, false, false, false}, {0.2, false, false, false}, {0.2, false, false, false}, {0.2, false, false, false}, {0.2, false, false, false}}}
-          << SubdivisionPattern{SubdivisionCategory::Tuplet, "Septuplets", {{1.0/7, false, false, false}, {1.0/7, false, false, false}, {1.0/7, false, false, false}, {1.0/7, false, false, false}, {1.0/7, false, false, false}, {1.0/7, false, false, false}, {1.0/7, false, false, false}}};
+        v << SubdivisionPattern{SubdivisionCategory::Tuplet, "Quintuplets",
+                {P(NoteValue::QuintupletNote), P(NoteValue::QuintupletNote),
+                 P(NoteValue::QuintupletNote), P(NoteValue::QuintupletNote),
+                 P(NoteValue::QuintupletNote)}}
+          << SubdivisionPattern{SubdivisionCategory::Tuplet, "Septuplets",
+                {P(NoteValue::SeptupletNote), P(NoteValue::SeptupletNote),
+                 P(NoteValue::SeptupletNote), P(NoteValue::SeptupletNote),
+                 P(NoteValue::SeptupletNote), P(NoteValue::SeptupletNote),
+                 P(NoteValue::SeptupletNote)}};
     } else {
-        v << SubdivisionPattern{SubdivisionCategory::Tuplet, "Quintuplets", {{0.2, false, false, false}, {0.2, false, false, false}, {0.2, false, false, false}, {0.2, false, false, false}, {0.2, false, false, false}}};
+        v << SubdivisionPattern{SubdivisionCategory::Tuplet, "Duplets",
+                {P(NoteValue::DupletNote), P(NoteValue::DupletNote)}}
+          << SubdivisionPattern{SubdivisionCategory::Tuplet, "Quartuplets",
+                {P(NoteValue::QuartupletNote), P(NoteValue::QuartupletNote),
+                 P(NoteValue::QuartupletNote), P(NoteValue::QuartupletNote)}}
+          << SubdivisionPattern{SubdivisionCategory::Tuplet, "Quintuplets",
+                {P(NoteValue::QuintupletNote), P(NoteValue::QuintupletNote),
+                 P(NoteValue::QuintupletNote), P(NoteValue::QuintupletNote),
+                 P(NoteValue::QuintupletNote)}};
     }
     return v;
 }
 
-QVector<SubdivisionPattern> getCustomPatterns(bool /*compound*/) {
-    // For future: let user create their own
-    return {};
-}
+QVector<SubdivisionPattern> getCustomPatterns(bool /*compound*/) { return {}; }
 
 } // namespace
 
@@ -88,26 +139,35 @@ QString SubdivisionSelectorDialog::getCustomPatternsFilePath() const {
 void SubdivisionSelectorDialog::loadCustomPatterns() {
     QString filePath = getCustomPatternsFilePath();
     QSettings settings(filePath, QSettings::IniFormat);
-    
+
     int count = settings.beginReadArray("CustomPatterns");
     m_savedCustomPatterns.clear();
-    
+
     for (int i = 0; i < count; ++i) {
         settings.setArrayIndex(i);
         SubdivisionPattern pattern;
         pattern.category = SubdivisionCategory::Custom;
         pattern.name = settings.value("name", QString("Custom %1").arg(i + 1)).toString();
-        
+
         int pulseCount = settings.beginReadArray("pulses");
-for (int j = 0; j < pulseCount; ++j) {
-    settings.setArrayIndex(j);
-    SubdivisionPulse pulse;
-    pulse.duration = settings.value("duration", 0.5).toDouble();
-    pulse.isRest = settings.value("isRest", false).toBool();
-    pulse.accent = settings.value("accent", false).toBool(); // NEW: Load accent
-    pulse.isDotted = settings.value("isDotted", false).toBool();
-    pattern.pulses.append(pulse);
-}
+        for (int j = 0; j < pulseCount; ++j) {
+            settings.setArrayIndex(j);
+            SubdivisionPulse pulse;
+            // New format: noteValue stored as string
+            QString nvStr = settings.value("noteValue", "").toString();
+            if (!nvStr.isEmpty()) {
+                pulse.noteValue = noteValueFromString(nvStr);
+            } else {
+                // Legacy migration: infer NoteValue from old float fields
+                double legacyDur    = settings.value("duration",  0.5).toDouble();
+                bool   legacyDotted = settings.value("isDotted",  false).toBool();
+                // Custom patterns are always in simple-time context for the selector
+                pulse.noteValue = noteValueFromLegacy(legacyDur, legacyDotted, false);
+            }
+            pulse.isRest = settings.value("isRest",  false).toBool();
+            pulse.accent = settings.value("accent",  false).toBool();
+            pattern.pulses.append(pulse);
+        }
         settings.endArray();
         
         if (!pattern.pulses.isEmpty()) {
@@ -120,22 +180,21 @@ for (int j = 0; j < pulseCount; ++j) {
 void SubdivisionSelectorDialog::saveCustomPatterns() {
     QString filePath = getCustomPatternsFilePath();
     QSettings settings(filePath, QSettings::IniFormat);
-    
+
     settings.beginWriteArray("CustomPatterns");
     for (int i = 0; i < m_savedCustomPatterns.size(); ++i) {
         settings.setArrayIndex(i);
         const SubdivisionPattern& pattern = m_savedCustomPatterns[i];
         settings.setValue("name", pattern.name);
-        
+
         settings.beginWriteArray("pulses");
-for (int j = 0; j < pattern.pulses.size(); ++j) {
-    settings.setArrayIndex(j);
-    const SubdivisionPulse& pulse = pattern.pulses[j];
-    settings.setValue("duration", pulse.duration);
-    settings.setValue("isRest", pulse.isRest);
-    settings.setValue("accent", pulse.accent); // NEW: Save accent
-    settings.setValue("isDotted", pulse.isDotted);
-}
+        for (int j = 0; j < pattern.pulses.size(); ++j) {
+            settings.setArrayIndex(j);
+            const SubdivisionPulse& pulse = pattern.pulses[j];
+            settings.setValue("noteValue", noteValueToString(pulse.noteValue));
+            settings.setValue("isRest",    pulse.isRest);
+            settings.setValue("accent",    pulse.accent);
+        }
         settings.endArray();
     }
     settings.endArray();
@@ -143,16 +202,11 @@ for (int j = 0; j < pattern.pulses.size(); ++j) {
 }
 
 void SubdivisionSelectorDialog::addCustomPattern(const SubdivisionPattern& pattern) {
-    // Ask user for a name
-    bool ok;
-    QString name = QInputDialog::getText(this, "Save Custom Pattern", 
-                                       "Pattern name:", QLineEdit::Normal, 
-                                       "Custom Pattern", &ok);
-    if (!ok || name.isEmpty()) return;
-    
     SubdivisionPattern namedPattern = pattern;
-    namedPattern.name = name;
     namedPattern.category = SubdivisionCategory::Custom;
+    // name was already set via chosenName() at the call site
+    if (namedPattern.name.isEmpty())
+        namedPattern.name = QString("Custom %1").arg(m_savedCustomPatterns.size() + 1);
     
     m_savedCustomPatterns.append(namedPattern);
     saveCustomPatterns();
@@ -171,18 +225,10 @@ void SubdivisionSelectorDialog::editCustomPattern(int index) {
     
     if (dlg.exec() == QDialog::Accepted) {
         SubdivisionPattern newPattern = dlg.chosenPattern();
-        
-        // Ask for new name
-        bool ok;
-        QString name = QInputDialog::getText(this, "Edit Pattern Name", 
-                                           "Pattern name:", QLineEdit::Normal, 
-                                           m_savedCustomPatterns[index].name, &ok);
-        if (ok && !name.isEmpty()) {
-            newPattern.name = name;
-            m_savedCustomPatterns[index] = newPattern;
-            saveCustomPatterns();
-            reloadPatternGrid();
-        }
+        newPattern.name = dlg.chosenName();
+        m_savedCustomPatterns[index] = newPattern;
+        saveCustomPatterns();
+        reloadPatternGrid();
     }
 }
 
@@ -201,136 +247,7 @@ void SubdivisionSelectorDialog::deleteCustomPattern(int index) {
 }
 
 NoteAssemblerConfig SubdivisionSelectorDialog::configForPattern(const SubdivisionPattern& pattern) const {
-    NoteAssemblerConfig cfg;
-    cfg.pixmapSize = QSize(48, 48);
-
-    cfg.noteCount = pattern.pulses.size();
-    cfg.noteTypes.clear();
-    cfg.dottedNotes.clear();
-
-    auto isClose = [](double a, double b) { return std::abs(a - b) < 1e-6; }; // Tighter tolerance
-
-    // Use the time signature from the dialog
-    bool isCompoundTime = m_compoundTime;
-
-    // --- Ceiling logic for tuplets/triplets ---
-    auto ceilingNoteTypeForDuration = [isCompoundTime](double dur) {
-        if (isCompoundTime) {
-            if (dur <= 1.0/6)        return AssembledNoteType::Sixteenth;
-            if (dur <= 1.0/3)        return AssembledNoteType::Eighth;
-            if (dur <= 2.0/3)        return AssembledNoteType::Eighth;        // 2/3 = dotted eighth (eighth with dot)
-            return AssembledNoteType::Quarter;                                 // 1.0 = dotted quarter (quarter with dot)
-        } else {
-            if (dur <= 0.125)    return AssembledNoteType::ThirtySecond;
-            if (dur <= 0.25)     return AssembledNoteType::Sixteenth;
-            if (dur <= 0.5)      return AssembledNoteType::Eighth;
-            return AssembledNoteType::Quarter;
-        }
-    };
-    
-    auto ceilingRestTypeForDuration = [isCompoundTime](double dur) {
-        if (isCompoundTime) {
-            if (dur <= 1.0/6)        return AssembledNoteType::Rest_Sixteenth;
-            if (dur <= 1.0/3)        return AssembledNoteType::Rest_Eighth;
-            if (dur <= 2.0/3)        return AssembledNoteType::Rest_Eighth;        // 2/3 = dotted eighth rest
-            return AssembledNoteType::Rest_Quarter;                              // 1.0 = dotted quarter rest
-        } else {
-            if (dur <= 0.125)    return AssembledNoteType::Rest_ThirtySecond;
-            if (dur <= 0.25)     return AssembledNoteType::Rest_Sixteenth;
-            if (dur <= 0.5)      return AssembledNoteType::Rest_Eighth;
-            return AssembledNoteType::Rest_Quarter;
-        }
-    };
-
-    bool isTupletOrTriplet =
-        (pattern.category == SubdivisionCategory::Tuplet) ||
-        pattern.name.toLower().contains("triplet");
-
-    if (isTupletOrTriplet) {
-        for (const SubdivisionPulse& p : pattern.pulses) {
-            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
-            if (p.isRest)
-                cfg.noteTypes.push_back(ceilingRestTypeForDuration(d));
-            else
-                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(d));
-            cfg.dottedNotes.push_back(p.isDotted);
-        }
-    } else {
-        for (const SubdivisionPulse& p : pattern.pulses) {
-            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
-            if (p.isRest) {
-                if (isCompoundTime) {
-                    if (isClose(d, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (isClose(d, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                    else if (d < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (d < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else                        cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                } else {
-                    if (isClose(d, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (isClose(d, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                    else if (d < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-                    else if (d < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else                        cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                }
-            } else {
-                if (isCompoundTime) {
-                    if (isClose(d, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (isClose(d, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-                    else if (d < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (d < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (d <= 2.0)          cfg.noteTypes.push_back(AssembledNoteType::Half);
-                    else                        cfg.noteTypes.push_back(AssembledNoteType::Whole);
-                } else {
-                    if (isClose(d, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (isClose(d, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 0.75))  cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-                    else if (d < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-                    else if (d < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (d <= 1.0)          cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-                    else if (d <= 2.0)          cfg.noteTypes.push_back(AssembledNoteType::Half);
-                    else                        cfg.noteTypes.push_back(AssembledNoteType::Whole);
-                }
-            }
-            cfg.dottedNotes.push_back(p.isDotted);
-        }
-    }
-    cfg.beamed = pattern.pulses.size() > 1;
-
-    // Check for triplets by name, category, or detected duration values
-    bool isTriplet = pattern.name.toLower().contains("triplet");
-    if (pattern.category == SubdivisionCategory::Tuplet || isTriplet) {
-        cfg.tupletNumber = pattern.pulses.size();
-    } else if (!pattern.pulses.isEmpty()) {
-        auto isTripletDur = [](double d) {
-            return (std::abs(d - 1.0/3) < 0.005) ||
-                   (std::abs(d - 1.0/6) < 0.005) ||
-                   (std::abs(d - 2.0/3) < 0.005);
-        };
-        int tripletCount = 0;
-        for (const SubdivisionPulse& p : pattern.pulses)
-            if (isTripletDur(p.duration)) tripletCount++;
-        if (tripletCount == (int)pattern.pulses.size()) {
-            cfg.tupletNumber = pattern.pulses.size();
-        } else if (tripletCount > 0) {
-            cfg.perNoteTupletNumbers.assign(pattern.pulses.size(), 0);
-            for (int i = 0; i < (int)pattern.pulses.size(); ++i)
-                if (isTripletDur(pattern.pulses[i].duration))
-                    cfg.perNoteTupletNumbers[i] = 3;
-        }
-    }
-    return cfg;
+    return buildNoteAssemblerConfig(pattern);
 }
 
 SubdivisionSelectorDialog::SubdivisionSelectorDialog(QWidget* parent, bool compoundTime, int numerator, int denominator)
@@ -459,12 +376,11 @@ void SubdivisionSelectorDialog::reloadPatternGrid() {
             NoteAssemblerConfig cfg = configForPattern(m_savedCustomPatterns[i]);
             cfg.pixmapSize = QSize(48, 48);
             
-            QPixmap originalPixmap = assembler.assembleNote(cfg);
-            
             // Check if we need to scale down to fit in the widget
+            QPixmap originalPixmap = assembler.assembleNote(cfg);
             QPixmap finalPixmap;
-            const int maxWidth = 110; // Leave some margin within the 120px widget
-            const int fixedHeight = 48; // Keep consistent height for alignment
+            const int maxWidth = 110;
+            const int fixedHeight = 72; // Tall enough for tuplet brackets above notes
             
             if (originalPixmap.width() > maxWidth) {
                 // Calculate scale percentage to fit within maxWidth
@@ -640,7 +556,8 @@ void SubdivisionSelectorDialog::onPlusBoxClicked() {
     CustomSubdivisionDialog dlg(this);
     if (dlg.exec() == QDialog::Accepted) {
         SubdivisionPattern pattern = dlg.chosenPattern();
-        addCustomPattern(pattern); // This will ask for name and save
+        pattern.name = dlg.chosenName();
+        addCustomPattern(pattern);
         m_chosenPattern = pattern;
         m_okButton->setEnabled(true);
     }
@@ -667,7 +584,7 @@ void SubdivisionSelectorDialog::updateDialogSizeForCustomPatterns() {
     const int numRows = (patternCount + wrapAfter - 1) / wrapAfter; // Ceiling division
     
     // More accurate height calculations
-    const int patternImageHeight = 48;
+    const int patternImageHeight = 72;
     const int patternNameHeight = 20;
     const int buttonHeight = 20;
     const int patternSpacing = 10; // Spacing between elements

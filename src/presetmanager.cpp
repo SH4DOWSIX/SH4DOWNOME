@@ -13,10 +13,9 @@ static QJsonObject toJson(const SubdivisionPattern& pattern) {
     QJsonArray pulsesArr;
     for (const SubdivisionPulse& p : pattern.pulses) {
         QJsonObject pObj;
-        pObj["duration"] = p.duration;
+        pObj["noteValue"] = noteValueToString(p.noteValue);
         pObj["isRest"] = p.isRest;
-        pObj["isDotted"] = p.isDotted;
-        pObj["accent"] = p.accent; // ADD THIS LINE
+        pObj["accent"] = p.accent;
         pulsesArr.append(pObj);
     }
     obj["pulses"] = pulsesArr;
@@ -32,10 +31,16 @@ static SubdivisionPattern fromJson(const QJsonObject& obj) {
     for (const QJsonValue& pulseVal : pulsesArr) {
         QJsonObject pObj = pulseVal.toObject();
         SubdivisionPulse p;
-        p.duration = pObj.value("duration").toDouble(0.25);
+        if (pObj.contains("noteValue")) {
+            p.noteValue = noteValueFromString(pObj.value("noteValue").toString());
+        } else {
+            // Legacy migration: reconstruct NoteValue from old float + isDotted fields
+            double dur = pObj.value("duration").toDouble(0.25);
+            bool dotted = pObj.value("isDotted").toBool(false);
+            p.noteValue = noteValueFromLegacy(dur, dotted, false);
+        }
         p.isRest = pObj.value("isRest").toBool(false);
-        p.isDotted = pObj.value("isDotted").toBool(false);
-        p.accent = pObj.value("accent").toBool(false); // ADD THIS LINE
+        p.accent = pObj.value("accent").toBool(false);
         pattern.pulses.append(p);
     }
     return pattern;
@@ -91,7 +96,7 @@ void PresetManager::loadFromDisk(const QString& filename) {
                 s.subdivisionPattern = fromJson(secObj.value("subdivisionPattern").toObject());
             } else {
                 int legacySubdiv = secObj.value("subdivision").toInt();
-                s.subdivisionPattern = SubdivisionPattern{SubdivisionCategory::Standard, "Quarter Note", { {1.0, false} }};
+                s.subdivisionPattern = SubdivisionPattern{SubdivisionCategory::Standard, "Quarter Note", { {NoteValue::Quarter, false} }};
             }
             s.label = secObj.value("label").toString();
             QJsonArray arr = secObj.value("accents").toArray();

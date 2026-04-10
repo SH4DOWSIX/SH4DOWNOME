@@ -264,8 +264,7 @@ for (const auto& group : beamGroups) {
                 int stubLen = thickness * 4;
                 p.fillRect(QRect(x - stubLen, y_beam, stubLen, thickness), Qt::white);
             }
-            if (b > 1 && k+1 < group.size() && beamsForNoteType(noteTypes[group[k+1]]) < b &&
-                !(k > 0 && beamsForNoteType(noteTypes[group[k-1]]) >= b)) {
+            if (b > 1 && k == 0 && k+1 < group.size() && beamsForNoteType(noteTypes[group[k+1]]) < b) {
                 int stubLen = thickness * 4;
                 p.fillRect(QRect(x, y_beam, stubLen, thickness), Qt::white);
             }
@@ -379,6 +378,56 @@ for (const auto& group : beamGroups) {
 
             p.drawPixmap(x_num, y_num, numberPix);
         }
+    }
+
+    //--- Sub-group tuplet brackets (for mixed patterns: some tuplet, some plain)
+    if (!config.tupletRuns.empty()) {
+        // Lambda to draw one bracket+number over notes [runFirst..runLast]
+        auto drawTupletBracket = [&](int runFirst, int runLast, int num) {
+            if (runFirst >= noteCount || runLast >= noteCount) return;
+            // Find first/last non-rest in the run for y positioning
+            int firstNote = runFirst, lastNote = runLast;
+            for (int i = runFirst; i <= runLast; ++i)
+                if (!isRestType(noteTypes[i])) { firstNote = i; break; }
+            for (int i = runLast; i >= runFirst; --i)
+                if (!isRestType(noteTypes[i])) { lastNote = i; break; }
+
+            int bracketPad = int(noteheadWidth * 0.5);
+            int x_left  = x_positions[runFirst] +
+                          (isRestType(noteTypes[runFirst]) ? restSize.width() / 2 : noteheadSize.width() / 2)
+                          - bracketPad;
+            int x_right = x_positions[runLast]  +
+                          (isRestType(noteTypes[runLast])  ? restSize.width() / 2 : noteheadSize.width() / 2)
+                          + bracketPad;
+            int y_bracket = stemTops[firstNote].y() - int(noteheadHeight * 0.5833);
+
+            QString numberSvg  = svgForTupletNumber(num);
+            int numberSize     = int(noteheadHeight * 0.6667);
+            QPixmap numberPix  = whiteSvgToPixmap(numberSvg, QSize(numberSize, numberSize));
+            int x_num = (x_left + x_right) / 2 - numberPix.width() / 2;
+            int y_num = y_bracket - numberPix.height() + int(noteheadHeight * 0.1667);
+
+            int gapPad      = int(noteheadWidth * 0.3333);
+            int x_gap_left  = x_num - gapPad;
+            int x_gap_right = x_num + numberPix.width() + gapPad;
+            int thickness   = int(noteheadHeight * 0.1667);
+            int vertLen     = int(noteheadHeight * 0.25);
+
+            p.setPen(QPen(Qt::white, thickness));
+            if (runFirst == runLast) {
+                // Single-note tuplet: just the number, no bracket
+                p.drawPixmap(x_num, y_num, numberPix);
+            } else {
+                p.drawLine(x_left,      y_bracket, x_gap_left,  y_bracket);
+                p.drawLine(x_gap_right, y_bracket, x_right,     y_bracket);
+                p.drawLine(x_left,  y_bracket, x_left,  y_bracket + vertLen);
+                p.drawLine(x_right, y_bracket, x_right, y_bracket + vertLen);
+                p.drawPixmap(x_num, y_num, numberPix);
+            }
+        };
+
+        for (const auto& run : config.tupletRuns)
+            drawTupletBracket(run.first, run.last, run.number);
     }
 
     p.end();

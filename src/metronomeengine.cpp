@@ -26,7 +26,7 @@ MetronomeEngine::MetronomeEngine(QObject *parent)
     m_subdivisionPattern = SubdivisionPattern{
         SubdivisionCategory::Standard,
         "Quarter Note",
-        QVector<SubdivisionPulse>{ {1.0, false, false} } // duration, isRest, accent
+        QVector<SubdivisionPulse>{ {NoteValue::Quarter, false, false} }
     };
 }
 
@@ -247,12 +247,10 @@ void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/) {
         int subdivs = m_subdivisionPattern.pulses.size();
         if (subdivs == 0) subdivs = 1;
 
-        // Treat SubdivisionPulse.duration as the authoritative, already-expanded fraction of the beat.
-        // (i.e., don't apply an extra *1.5 for dotted; if a pattern author used isDotted to indicate dot
-        // for rendering but also stored the expanded numeric value, we rely on the numeric value.)
+        // Compute total pattern duration in beat fractions using NoteValue
         double totalPatternDuration = 0.0;
         for (const auto& pulse : m_subdivisionPattern.pulses) {
-            totalPatternDuration += pulse.duration;
+            totalPatternDuration += noteValueBeatFraction(pulse.noteValue, compound);
         }
 
         // Determine whether this pattern is a "standard" pattern (fits exactly in one beat)
@@ -261,7 +259,7 @@ void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/) {
         if (m_subdivisionPattern.category == SubdivisionCategory::Custom) {
             isStandardPattern = false;
         } else if (compound && m_subdivisionPattern.pulses.size() == 1 &&
-                   std::abs(m_subdivisionPattern.pulses[0].duration - 1.0) < TOLERANCE) {
+                   std::abs(noteValueBeatFraction(m_subdivisionPattern.pulses[0].noteValue, compound) - 1.0) < TOLERANCE) {
             isStandardPattern = true;
         } else {
             isStandardPattern = (std::abs(totalPatternDuration - 1.0) < TOLERANCE);
@@ -288,8 +286,7 @@ void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/) {
                     ev.isRest = m_subdivisionPattern.pulses[s].isRest;
                     ev.playPulse = !ev.isRest;
 
-                    // Use numeric duration directly
-                    double pulseDurSec = secondsPerBeat * m_subdivisionPattern.pulses[s].duration;
+                    double pulseDurSec = secondsPerBeat * noteValueBeatFraction(m_subdivisionPattern.pulses[s].noteValue, compound);
 
                     ev.samplePosInBar = int(std::round((beatStartSec + pulseOffsetSec) * sampleRate)) + countInEndSample;
                     ev.startOfCycle = false;
@@ -300,13 +297,11 @@ void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/) {
             }
             m_barLengthSeconds = timeSignatureBarLength;
         } else {
-            // Custom subdivision: the pattern defines its own bar length (preserve exact note values)
-            // Compute actual pattern duration (no extra dot multiplier)
+            // Custom subdivision: the pattern defines its own bar length
             double actualPatternDurationSeconds = 0.0;
             for (const auto& p : m_subdivisionPattern.pulses) {
-                actualPatternDurationSeconds += p.duration;
+                actualPatternDurationSeconds += noteValueBeatFraction(p.noteValue, compound) * secondsPerBeat;
             }
-            actualPatternDurationSeconds *= secondsPerBeat;
 
             std::vector<double> beatStartTimes;
             for (int b = 0; b < beats; ++b)
@@ -337,7 +332,7 @@ void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/) {
                 ev.isRest = pulse.isRest;
                 ev.playPulse = !ev.isRest;
 
-                double pulseDurSec = secondsPerBeat * pulse.duration;
+                double pulseDurSec = secondsPerBeat * noteValueBeatFraction(pulse.noteValue, compound);
 
                 ev.samplePosInBar = int(std::round(pulseOffsetSec * sampleRate)) + countInEndSample;
                 ev.startOfCycle = (s == 0);
@@ -490,7 +485,7 @@ void MetronomeEngine::scheduleCustomSubdivisionLoop() {
         ev.isRest = pulse.isRest;
 
         // Use duration directly (do not multiply by dot)
-        double pulseDurSec = secondsPerBeat * pulse.duration;
+        double pulseDurSec = secondsPerBeat * noteValueBeatFraction(pulse.noteValue, compound);
 
         // NO count-in offset - this is just the pattern
         ev.samplePosInBar = int(pulseOffsetSec * sampleRate);

@@ -5,22 +5,6 @@
 #include "subdivisionpattern.h"
 #include "audioengine.h"
 
-enum class NoteValue {
-    Quarter, Eighth, Sixteenth, Triplet,
-    Eighth_Sixteenth_Sixteenth,
-    Sixteenth_Sixteenth_Eighth,
-    Sixteenth_Eighth_Sixteenth,
-    DottedEighth_Sixteenth,
-    Sixteenth_DottedEighth,
-    EighthRest_Eighth,
-    SixteenthRest_Sixteenth_SixteenthRest_Sixteenth,
-    EighthRest_Eighth_Eighth,
-    Eighth_EighthRest_Eighth,
-    Eighth_Eighth_EighthRest,
-    EighthRest_Eighth_EighthRest,
-    DottedQuarter
-};
-
 struct Polyrhythm {
     int primaryBeats = 3;
     int secondaryBeats = 2;

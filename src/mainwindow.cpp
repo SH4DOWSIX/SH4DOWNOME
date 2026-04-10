@@ -103,143 +103,8 @@ void MainWindow::updatePolyrhythmButtonColor() {
 
 // Helper: Map a SubdivisionPattern to NoteAssemblerConfig for atomic SVG assembly
 NoteAssemblerConfig MainWindow::configForPattern(const SubdivisionPattern& pattern) const {
-    NoteAssemblerConfig cfg;
-    cfg.pixmapSize = QSize(48, 48);
-
-    cfg.noteCount = pattern.pulses.size();
-    cfg.noteTypes.clear();
-    cfg.dottedNotes.clear();
-
-    auto isClose = [](double a, double b) { return std::abs(a - b) < 1e-6; }; // Tighter tolerance
-
-    // Check if we're in compound time
-    bool isCompoundTime = (currentDenominator == 8 && currentNumerator % 3 == 0 && currentNumerator > 3);
-
-    // --- Ceiling logic for tuplets/triplets ---
-    auto ceilingNoteTypeForDuration = [isCompoundTime](double dur) {
-        if (isCompoundTime) {
-            // In compound time, durations are relative to dotted quarter
-            if (dur <= 1.0/6)        return AssembledNoteType::Sixteenth;     // 1/6 of dotted quarter = sixteenth
-            if (dur <= 1.0/3)        return AssembledNoteType::Eighth;        // 1/3 of dotted quarter = eighth
-            if (dur <= 2.0/3)        return AssembledNoteType::Eighth;        // 2/3 of dotted quarter = dotted eighth (use eighth with dot)
-            return AssembledNoteType::Quarter;                                 // 1.0 = dotted quarter (use quarter with dot)
-        } else {
-            // Simple time logic (unchanged)
-            if (dur <= 0.125)    return AssembledNoteType::ThirtySecond;
-            if (dur <= 0.25)     return AssembledNoteType::Sixteenth;
-            if (dur <= 0.5)      return AssembledNoteType::Eighth;
-            return AssembledNoteType::Quarter;
-        }
-    };
-    
-    auto ceilingRestTypeForDuration = [isCompoundTime](double dur) {
-        if (isCompoundTime) {
-            if (dur <= 1.0/6)        return AssembledNoteType::Rest_Sixteenth;
-            if (dur <= 1.0/3)        return AssembledNoteType::Rest_Eighth;
-            if (dur <= 2.0/3)        return AssembledNoteType::Rest_Eighth;
-            return AssembledNoteType::Rest_Quarter;                            // 1.0 = dotted quarter rest
-        } else {
-            if (dur <= 0.125)    return AssembledNoteType::Rest_ThirtySecond;
-            if (dur <= 0.25)     return AssembledNoteType::Rest_Sixteenth;
-            if (dur <= 0.5)      return AssembledNoteType::Rest_Eighth;
-            return AssembledNoteType::Rest_Quarter;
-        }
-    };
-
-    bool isTupletOrTriplet =
-        (pattern.category == SubdivisionCategory::Tuplet) ||
-        pattern.name.toLower().contains("triplet");
-
-    if (isTupletOrTriplet) {
-        for (const SubdivisionPulse& p : pattern.pulses) {
-            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
-            if (p.isRest)
-                cfg.noteTypes.push_back(ceilingRestTypeForDuration(d));
-            else
-                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(d));
-            cfg.dottedNotes.push_back(p.isDotted);
-        }
-    } else {
-        for (const SubdivisionPulse& p : pattern.pulses) {
-            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
-            if (p.isRest) {
-                if (isCompoundTime) {
-                    // Compound time rest logic - exact matches first
-                    if (isClose(d, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (isClose(d, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                    else if (d < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (d < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else                        cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                } else {
-                    // Simple time rest logic
-                    if (isClose(d, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else if (isClose(d, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                    else if (d < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-                    else if (d < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-                    else                        cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-                }
-            } else {
-                if (isCompoundTime) {
-                    if (isClose(d, 1.0/6))      cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (isClose(d, 1.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 2.0/3)) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-                    else if (d < 1.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (d < 2.0/3)         cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (d <= 2.0)          cfg.noteTypes.push_back(AssembledNoteType::Half);
-                    else                        cfg.noteTypes.push_back(AssembledNoteType::Whole);
-                } else {
-                    if (isClose(d, 1.0/3))      cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 0.25))  cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (isClose(d, 0.125)) cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-                    else if (isClose(d, 0.5))   cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 0.75))  cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-                    else if (isClose(d, 1.0))   cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-                    else if (d < 0.25)          cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-                    else if (d < 0.5)           cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-                    else if (d <= 1.0)          cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-                    else if (d <= 2.0)          cfg.noteTypes.push_back(AssembledNoteType::Half);
-                    else                        cfg.noteTypes.push_back(AssembledNoteType::Whole);
-                }
-            }
-            cfg.dottedNotes.push_back(p.isDotted);
-        }
-    }
-    cfg.beamed = pattern.pulses.size() > 1;
-
-    // Check for triplets by name, category, or detected duration values
-    bool isTriplet = pattern.name.toLower().contains("triplet");
-    if (pattern.category == SubdivisionCategory::Tuplet || isTriplet) {
-        cfg.tupletNumber = pattern.pulses.size();
-    } else if (!pattern.pulses.isEmpty()) {
-        auto isTripletDur = [](double d) {
-            return (std::abs(d - 1.0/3) < 0.005) ||
-                   (std::abs(d - 1.0/6) < 0.005) ||
-                   (std::abs(d - 2.0/3) < 0.005);
-        };
-        int tripletCount = 0;
-        for (const SubdivisionPulse& p : pattern.pulses)
-            if (isTripletDur(p.duration)) tripletCount++;
-        if (tripletCount == (int)pattern.pulses.size()) {
-            cfg.tupletNumber = pattern.pulses.size();
-        } else if (tripletCount > 0) {
-            cfg.perNoteTupletNumbers.assign(pattern.pulses.size(), 0);
-            for (int i = 0; i < (int)pattern.pulses.size(); ++i)
-                if (isTripletDur(pattern.pulses[i].duration))
-                    cfg.perNoteTupletNumbers[i] = 3;
-        }
-    }
-    return cfg;
+    return buildNoteAssemblerConfig(pattern);
 }
-
-
 
 
 
@@ -795,7 +660,7 @@ void MainWindow::setTimeSignature(int numerator, int denominator) {
             // Compound time: Dotted quarter
             SubdivisionPattern dottedQuarter;
             dottedQuarter.name = "Dotted Quarter";
-            dottedQuarter.pulses = {{1.0, false, false, true}}; // duration=1.0, not rest, not accented, isDotted=true
+            dottedQuarter.pulses = {{NoteValue::DottedQuarter, false, false}};
             currentPreset.sections[currentSectionIdx].subdivisionPattern = dottedQuarter;
         } else {
             // Simple time: Quarter note
@@ -2144,11 +2009,11 @@ void MainWindow::onRenamePreset() {
     QString oldName = ui->comboPresets->currentText();
     if (oldName.isEmpty()) return;
 
-    QString newName = QInputDialog::getText(this, "Rename Preset (Song)", "New song name:", QLineEdit::Normal, oldName);
+    QString newName = QInputDialog::getText(this, "Rename Piece", "New piece name:", QLineEdit::Normal, oldName);
     if (newName.isEmpty() || newName == oldName) return;
 
     if (presetManager.listPresetNames().contains(newName)) {
-        QMessageBox::warning(this, "Rename Preset", "A preset with that name already exists.");
+        QMessageBox::warning(this, "Rename Piece", "A preset with that name already exists.");
         return;
     }
 
@@ -2710,15 +2575,9 @@ void MainWindow::onSettingsClicked()
 
 // --- HELPER: Default pattern for new sections (quarter note) ---
 SubdivisionPattern MainWindow::getDefaultSubdivisionPattern() const {
-    // You should have a list of built-in patterns somewhere (perhaps in SubdivisionSelectorDialog or a static list).
-    // For example:
-    extern std::vector<SubdivisionPattern> builtinSubdivisionPatterns;
-    if (!builtinSubdivisionPatterns.empty())
-        return builtinSubdivisionPatterns[0]; // Quarter note pattern is first
-    // If not found, fallback to a 1-pulse, "Quarter Note" pattern
     SubdivisionPattern fallback;
     fallback.name = "Quarter Note";
-    fallback.pulses = { {1.0, false, false} }; // duration, isRest, accent
+    fallback.pulses = { {NoteValue::Quarter, false, false} };
     return fallback;
 }
 

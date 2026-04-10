@@ -8,48 +8,88 @@
 #include <QToolTip>
 #include <QApplication>
 #include <QMessageBox>
-#include <QComboBox>
+#include <functional>
 
-// Helper function to get duration name
-QString getDurationName(double duration) {
-    if (qAbs(duration - 4.0) < 0.001) return "Whole";
-    if (qAbs(duration - 2.0) < 0.001) return "Half";
-    if (qAbs(duration - 1.0) < 0.001) return "Quarter";
-    if (qAbs(duration - 0.6667) < 0.001) return "Triplet Qtr";
-    if (qAbs(duration - 0.5) < 0.001) return "Eighth";
-    if (qAbs(duration - 0.3333) < 0.001) return "Triplet 8th";
-    if (qAbs(duration - 0.25) < 0.001) return "Sixteenth";
-    if (qAbs(duration - 0.1667) < 0.001) return "Triplet 16th";
-    if (qAbs(duration - 0.125) < 0.001) return "Thirty-second";
-    if (qAbs(duration - 0.0625) < 0.001) return "Sixty-fourth";
-    // Dotted note names (stored duration = base * 1.5)
-    if (qAbs(duration - 6.0)    < 0.01) return "Dot Whole";
-    if (qAbs(duration - 3.0)    < 0.01) return "Dot Half";
-    if (qAbs(duration - 1.5)    < 0.01) return "Dot Qtr";
-    if (qAbs(duration - 0.75)   < 0.01) return "Dot 8th";
-    if (qAbs(duration - 0.375)  < 0.01) return "Dot 16th";
-    if (qAbs(duration - 0.1875) < 0.01) return "Dot 32nd";
-    if (qAbs(duration - 0.09375) < 0.005) return "Dot 64th";
-    return QString::number(duration, 'f', 3);
+// Human-readable name for any NoteValue — derived dynamically from NoteValueInfo.
+QString getDurationName(NoteValue nv) {
+    NoteValueInfo info = getNoteValueInfo(nv);
+    QString name;
+    switch (info.noteType) {
+    case AssembledNoteType::Whole:        name = "Whole";   break;
+    case AssembledNoteType::Half:         name = "Half";    break;
+    case AssembledNoteType::Quarter:      name = "Quarter"; break;
+    case AssembledNoteType::Eighth:       name = "8th";     break;
+    case AssembledNoteType::Sixteenth:    name = "16th";    break;
+    case AssembledNoteType::ThirtySecond: name = "32nd";    break;
+    case AssembledNoteType::SixtyFourth:  name = "64th";    break;
+    default:                              name = "Note";    break;
+    }
+    if (info.dotted)           name = "Dot." + name;
+    if (info.tupletNumber > 0) name = QString("%1:%2").arg(info.tupletNumber).arg(name);
+    return name;
 }
 
-// Expanded duration values and names
-const QVector<double> DURATION_VALUES = {
-    0.0625,   // Sixty-fourth
-    0.125,    // Thirty-second
-    0.1667,   // Triplet sixteenth
-    0.25,     // Sixteenth
-    0.3333,   // Triplet eighth
-    0.5,      // Eighth
-    0.6667,   // Triplet quarter
-    1.0,      // Quarter
-    2.0,      // Half
-    4.0       // Whole
+// Plain note tiles — 7 entries, index 4 = Quarter.
+// Dotted variants are tracked separately via the Dotted toggle.
+// Tuplets are applied via resolveTupletNoteValue().
+struct NoteValueComboItem {
+    NoteValue base;
+    NoteValue dotted;
+    QString   name;
+    bool      canBeDotted;
+};
+static const QVector<NoteValueComboItem> NOTE_VALUE_COMBO = {
+    { NoteValue::SixtyFourth,  NoteValue::SixtyFourth,     "64th",    false },
+    { NoteValue::ThirtySecond, NoteValue::ThirtySecond,    "32nd",    false },
+    { NoteValue::Sixteenth,    NoteValue::DottedSixteenth, "16th",    true  },
+    { NoteValue::Eighth,       NoteValue::DottedEighth,    "8th",     true  },
+    { NoteValue::Quarter,      NoteValue::DottedQuarter,   "Quarter", true  },
+    { NoteValue::Half,         NoteValue::DottedHalf,      "Half",    true  },
+    { NoteValue::Whole,        NoteValue::Whole,           "Whole",   false },
 };
 
-const QStringList DURATION_NAMES = {
-    "64th", "32nd", "Trip 16th", "16th", "Trip 8th", "8th", "Trip Qtr", "Quarter", "Half", "Whole"
-};
+// Decompose any NoteValue into (tileIndex, dotted, tupletN) so the dialog
+// controls can sync to the selected pulse.
+struct PulseDecomposition { int tileIdx; bool dotted; int tupletN; };
+static PulseDecomposition decomposePulseNoteValue(NoteValue nv) {
+    NoteValueInfo info = getNoteValueInfo(nv);
+    // Determine the plain base from the rendered glyph
+    NoteValue base;
+    switch (info.noteType) {
+    case AssembledNoteType::Whole:        base = NoteValue::Whole;        break;
+    case AssembledNoteType::Half:         base = NoteValue::Half;         break;
+    case AssembledNoteType::Quarter:      base = NoteValue::Quarter;      break;
+    case AssembledNoteType::Eighth:       base = NoteValue::Eighth;       break;
+    case AssembledNoteType::Sixteenth:    base = NoteValue::Sixteenth;    break;
+    case AssembledNoteType::ThirtySecond: base = NoteValue::ThirtySecond; break;
+    case AssembledNoteType::SixtyFourth:  base = NoteValue::SixtyFourth;  break;
+    default:                              base = NoteValue::Quarter;      break;
+    }
+    int tileIdx = 4;
+    for (int i = 0; i < NOTE_VALUE_COMBO.size(); ++i)
+        if (NOTE_VALUE_COMBO[i].base == base) { tileIdx = i; break; }
+    return { tileIdx, info.dotted, info.tupletNumber };
+}
+
+// Resolve active tile + dotted + tuplet → concrete NoteValue
+static NoteValue resolveActiveNoteValue(int tileIdx, bool dotted, int tupletN) {
+    const auto& row = NOTE_VALUE_COMBO[tileIdx];
+    if (tupletN > 0)               return resolveTupletNoteValue(row.base, tupletN);
+    if (dotted && row.canBeDotted) return row.dotted;
+    return row.base;
+}
+
+// Whether a (tile, tuplet) combination has a defined NoteValue
+static bool isValidTuplet(int tileIdx, int tupletN) {
+    if (tupletN == 0) return true;
+    switch (NOTE_VALUE_COMBO[tileIdx].base) {
+    case NoteValue::Quarter:      return tupletN >= 2 && tupletN <= 7;
+    case NoteValue::Eighth:       return tupletN >= 2 && tupletN <= 9;
+    case NoteValue::Sixteenth:    return tupletN >= 2 && tupletN <= 9;
+    case NoteValue::ThirtySecond: return tupletN == 3;
+    default:                      return false;
+    }
+}
 
 SubdivisionPulseWidget::SubdivisionPulseWidget(const SubdivisionPulse& pulse, QWidget* parent)
     : QWidget(parent), m_pulse(pulse)
@@ -74,11 +114,10 @@ void SubdivisionPulseWidget::setSelected(bool selected) {
 }
 
 void SubdivisionPulseWidget::updateToolTip() {
-    QString tooltip = getDurationName(m_pulse.duration);
-    if (m_pulse.isRest) tooltip += " Rest";
-    else tooltip += " Note";
-    if (m_pulse.isDotted) tooltip += " (Dotted)";
-    if (m_pulse.accent) tooltip += " (Accented)";
+    QString tooltip = getDurationName(m_pulse.noteValue);
+    if (m_pulse.isRest)   tooltip += " Rest";
+    else                  tooltip += " Note";
+    if (m_pulse.accent)   tooltip += " (Accented)";
     setToolTip(tooltip);
 }
 
@@ -87,7 +126,6 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    // Background - highlight if accented
     QColor bgColor;
     if (m_selected) {
         bgColor = m_pulse.accent ? QColor(150, 100, 200) : QColor(100, 150, 200);
@@ -95,66 +133,27 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
         bgColor = m_pulse.accent ? QColor(80, 60, 100) : QColor(60, 60, 60);
     }
     p.fillRect(rect(), bgColor);
-
-    // Border
     p.setPen(QPen(m_selected ? Qt::white : Qt::gray, 2));
     p.drawRect(rect().adjusted(1, 1, -1, -1));
 
-    // Accent indicator (small star or dot in corner)
     if (m_pulse.accent) {
         p.setPen(QPen(Qt::yellow, 2));
         p.setBrush(Qt::yellow);
-        QRect accentRect(width() - 8, 2, 6, 6);
-        p.drawEllipse(accentRect);
+        p.drawEllipse(QRect(width() - 8, 2, 6, 6));
     }
 
-    // Create a mini note representation using NoteAssembler
+    // Render note glyph using the canonical NoteValue path
+    SubdivisionPattern singlePulsePattern;
+    singlePulsePattern.category = SubdivisionCategory::Custom;
+    singlePulsePattern.pulses   = { m_pulse };
+    NoteAssemblerConfig cfg = buildNoteAssemblerConfig(singlePulsePattern);
+    cfg.pixmapSize        = QSize(32, 32);
+    cfg.centerVertically  = true;
+    cfg.beamed            = false; // single note, never beam
+
     NoteAssembler assembler;
-    NoteAssemblerConfig cfg;
-    cfg.pixmapSize = QSize(48, 48); // Small size for the widget
-    cfg.noteCount = 1;
-    cfg.centerVertically = true;
-
-    // Convert pulse to proper note type (expanded logic)
-    // If dotted, the stored duration is base*1.5 — divide back to get the base note type for glyph selection
-    double lookupDur = (m_pulse.isDotted && m_pulse.duration > 0) ? m_pulse.duration / 1.5 : m_pulse.duration;
-
-    // Triplet durations: 1/3 ≈ 0.3333 (triplet eighth), 1/6 ≈ 0.1667 (triplet sixteenth), 2/3 ≈ 0.6667 (triplet quarter)
-    auto isTripletDuration = [](double d) {
-        return (std::abs(d - 1.0/3) < 0.005) || (std::abs(d - 1.0/6) < 0.005) || (std::abs(d - 2.0/3) < 0.005);
-    };
-    if (isTripletDuration(lookupDur)) cfg.tupletNumber = 3;
-
-    if (m_pulse.isRest) {
-        if (lookupDur <= 0.0625)      cfg.noteTypes.push_back(AssembledNoteType::Rest_SixtyFourth);
-        else if (lookupDur <= 0.125)  cfg.noteTypes.push_back(AssembledNoteType::Rest_ThirtySecond);
-        else if (lookupDur <= 0.1667) cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-        else if (lookupDur <= 0.25)   cfg.noteTypes.push_back(AssembledNoteType::Rest_Sixteenth);
-        else if (lookupDur <= 0.3333) cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-        else if (lookupDur <= 0.5)    cfg.noteTypes.push_back(AssembledNoteType::Rest_Eighth);
-        else if (lookupDur <= 0.6667) cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-        else if (lookupDur <= 1.0)    cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-        else if (lookupDur <= 2.0)    cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-        else                           cfg.noteTypes.push_back(AssembledNoteType::Rest_Quarter);
-    } else {
-        if (lookupDur <= 0.0625)      cfg.noteTypes.push_back(AssembledNoteType::SixtyFourth);
-        else if (lookupDur <= 0.125)  cfg.noteTypes.push_back(AssembledNoteType::ThirtySecond);
-        else if (lookupDur <= 0.1667) cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-        else if (lookupDur <= 0.25)   cfg.noteTypes.push_back(AssembledNoteType::Sixteenth);
-        else if (lookupDur <= 0.3333) cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-        else if (lookupDur <= 0.5)    cfg.noteTypes.push_back(AssembledNoteType::Eighth);
-        else if (lookupDur <= 0.6667) cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-        else if (lookupDur <= 1.0)    cfg.noteTypes.push_back(AssembledNoteType::Quarter);
-        else if (lookupDur <= 2.0)    cfg.noteTypes.push_back(AssembledNoteType::Half);
-        else                           cfg.noteTypes.push_back(AssembledNoteType::Whole);
-    }
-    cfg.dottedNotes.push_back(m_pulse.isDotted);
-    cfg.beamed = false; // Individual notes don't show beams
-
-    // Generate the note pixmap
     QPixmap notePixmap = assembler.assembleNote(cfg);
 
-    // Draw the note scaled to fit the content area (reserves gap above text)
     const int textAreaH = 12;
     const int textGap   = 4;
     QRect contentRect = rect().adjusted(4, 4, -4, -(textAreaH + textGap));
@@ -163,12 +162,11 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
     noteRect.moveTopLeft(QPoint(contentRect.center().x() - noteRect.width() / 2, contentRect.top()));
     p.drawPixmap(noteRect, scaledNote);
 
-    // Duration indicator at bottom (smaller text)
     p.setPen(Qt::white);
     QFont smallFont = font();
     smallFont.setPointSize(6);
     p.setFont(smallFont);
-    QString durText = getDurationName(m_pulse.duration);
+    QString durText = getDurationName(m_pulse.noteValue);
     if (durText.length() > 9) durText = durText.left(6) + "..";
     p.drawText(rect().adjusted(2, 0, -2, -2), Qt::AlignBottom | Qt::AlignHCenter, durText);
 }
@@ -180,14 +178,87 @@ void SubdivisionPulseWidget::mousePressEvent(QMouseEvent* event) {
     QWidget::mousePressEvent(event);
 }
 
+// ─── NoteTileWidget ──────────────────────────────────────────────────────────
+// A clickable tile showing a single note glyph + name. Used as the duration
+// picker in CustomSubdivisionDialog.
+class NoteTileWidget : public QWidget {
+public:
+    explicit NoteTileWidget(int comboIndex, QWidget* parent = nullptr)
+        : QWidget(parent), m_comboIndex(comboIndex)
+    {
+        setFixedSize(50, 62);
+        setCursor(Qt::PointingHandCursor);
+        setToolTip(NOTE_VALUE_COMBO[comboIndex].name);
+
+        // Pre-render note pixmap
+        SubdivisionPattern p;
+        p.category = SubdivisionCategory::Custom;
+        p.pulses.append(SubdivisionPulse{ NOTE_VALUE_COMBO[comboIndex].base, false, false });
+        NoteAssemblerConfig cfg = buildNoteAssemblerConfig(p);
+        cfg.pixmapSize       = QSize(34, 38);
+        cfg.centerVertically = true;
+        cfg.beamed           = false;
+        NoteAssembler assembler;
+        m_notePixmap = assembler.assembleNote(cfg);
+    }
+
+    void setSelected(bool selected) {
+        if (m_selected != selected) { m_selected = selected; update(); }
+    }
+    bool isSelected() const { return m_selected; }
+    int  comboIndex()  const { return m_comboIndex; }
+
+    // Set by the owning dialog — called when the tile is clicked
+    std::function<void(int)> onClicked;
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+
+        QColor bg = m_selected ? QColor(70, 120, 190) : QColor(48, 48, 48);
+        p.fillRect(rect(), bg);
+
+        QPen borderPen(m_selected ? QColor(120, 175, 255) : QColor(75, 75, 75), 1);
+        p.setPen(borderPen);
+        p.drawRect(rect().adjusted(0, 0, -1, -1));
+
+        // Note glyph centered in upper area
+        const int textH = 14;
+        QRect noteArea(2, 2, width() - 4, height() - textH - 4);
+        QPixmap scaled = m_notePixmap.scaled(noteArea.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        QRect dr = scaled.rect();
+        dr.moveTopLeft({ noteArea.center().x() - dr.width() / 2, noteArea.top() });
+        p.drawPixmap(dr, scaled);
+
+        // Note name at bottom
+        p.setPen(m_selected ? Qt::white : QColor(180, 180, 180));
+        QFont f = font();
+        f.setPointSize(6);
+        p.setFont(f);
+        p.drawText(QRect(0, height() - textH, width(), textH),
+                   Qt::AlignHCenter | Qt::AlignVCenter,
+                   NOTE_VALUE_COMBO[m_comboIndex].name);
+    }
+
+    void mousePressEvent(QMouseEvent* e) override {
+        if (e->button() == Qt::LeftButton && onClicked)
+            onClicked(m_comboIndex);
+        QWidget::mousePressEvent(e);
+    }
+
+private:
+    int     m_comboIndex;
+    bool    m_selected = false;
+    QPixmap m_notePixmap;
+};
+
 CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     : QDialog(parent)
 {
     setWindowTitle("Create Custom Subdivision");
     setModal(true);
-    setMinimumSize(650, 500);
-    setMaximumSize(650, 500);
-    resize(650, 500);
+    setFixedSize(650, 620);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(12);
@@ -200,6 +271,15 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     titleLabel->setFont(titleFont);
     titleLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(titleLabel);
+
+    // Pattern name field
+    QHBoxLayout* nameLayout = new QHBoxLayout;
+    nameLayout->addWidget(new QLabel("Name:", this));
+    m_nameEdit = new QLineEdit(this);
+    m_nameEdit->setPlaceholderText("Pattern name");
+    m_nameEdit->setText("Custom Pattern");
+    nameLayout->addWidget(m_nameEdit);
+    mainLayout->addLayout(nameLayout);
 
     // Pulse visualization area
     QGroupBox* pulseGroup = new QGroupBox("Pattern", this);
@@ -222,25 +302,45 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     mainLayout->addWidget(pulseGroup);
 
     // Controls area
-    QGroupBox* controlGroup = new QGroupBox("Edit Selected Pulse", this);
+    QGroupBox* controlGroup = new QGroupBox("Add / Edit Selected Pulse", this);
     QVBoxLayout* controlLayout = new QVBoxLayout(controlGroup);
 
-    // Duration control
+    // Duration control — plain note tile picker (64th → Whole)
     QHBoxLayout* durationLayout = new QHBoxLayout;
-    durationLayout->addWidget(new QLabel("Duration:", this));
-
-    // Use QComboBox instead of QSlider for durations
-    m_durationCombo = new QComboBox(this);
-    for (const QString& name : DURATION_NAMES)
-        m_durationCombo->addItem(name);
-    m_durationCombo->setCurrentIndex(7); // Default to "Quarter"
-    durationLayout->addWidget(m_durationCombo);
-
-    m_durationLabel = new QLabel("Quarter", this);
-    m_durationLabel->setMinimumWidth(60);
-    durationLayout->addWidget(m_durationLabel);
-
+    durationLayout->setSpacing(3);
+    durationLayout->setContentsMargins(0, 0, 0, 0);
+    m_selectedTileIndex = 4; // Quarter
+    for (int i = 0; i < NOTE_VALUE_COMBO.size(); ++i) {
+        NoteTileWidget* tile = new NoteTileWidget(i, this);
+        tile->onClicked = [this](int idx) { onNoteTileClicked(idx); };
+        tile->setSelected(i == m_selectedTileIndex);
+        m_noteTiles.append(tile);
+        durationLayout->addWidget(tile);
+    }
+    durationLayout->addStretch();
     controlLayout->addLayout(durationLayout);
+
+    // Tuplet row: [×] [2] [3] [4] [5] [6] [7] [8] [9]
+    QHBoxLayout* tupletLayout = new QHBoxLayout;
+    tupletLayout->setSpacing(3);
+    tupletLayout->setContentsMargins(0, 0, 0, 0);
+    tupletLayout->addWidget(new QLabel("Tuplet:", this));
+    m_tupletButtons.resize(10, nullptr); // indices 0 and 2-9 used
+    m_selectedTuplet = 0;
+    auto makeTupletBtn = [&](int n, const QString& label) {
+        QPushButton* btn = new QPushButton(label, this);
+        btn->setFixedWidth(30);
+        btn->setCheckable(true);
+        btn->setChecked(n == 0); // × is initially selected
+        connect(btn, &QPushButton::clicked, this, [this, n]() { onTupletButtonClicked(n); });
+        m_tupletButtons[n] = btn;
+        tupletLayout->addWidget(btn);
+    };
+    makeTupletBtn(0, "×");
+    for (int n = 2; n <= 9; ++n)
+        makeTupletBtn(n, QString::number(n));
+    tupletLayout->addStretch();
+    controlLayout->addLayout(tupletLayout);
 
     // Type controls
     QHBoxLayout* typeLayout = new QHBoxLayout;
@@ -293,7 +393,8 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     // Preview
     m_previewLabel = new QLabel(this);
     m_previewLabel->setAlignment(Qt::AlignCenter);
-    m_previewLabel->setFixedSize(625, 80);
+    m_previewLabel->setFixedHeight(80);
+    m_previewLabel->setMinimumWidth(600);
     m_previewLabel->setStyleSheet("border: 1px solid gray; background: #2a2a2a;");
     mainLayout->addWidget(m_previewLabel);
 
@@ -308,7 +409,6 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     mainLayout->addLayout(buttonLayout);
 
     // Connections
-    connect(m_durationCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &CustomSubdivisionDialog::onDurationChanged);
     connect(m_noteButton, &QPushButton::clicked, this, &CustomSubdivisionDialog::onTypeChanged);
     connect(m_restButton, &QPushButton::clicked, this, &CustomSubdivisionDialog::onTypeChanged);
     connect(m_dottedButton, &QPushButton::toggled, this, &CustomSubdivisionDialog::onTypeChanged);
@@ -333,115 +433,20 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
 
 void CustomSubdivisionDialog::setPattern(const SubdivisionPattern& pattern) {
     m_pattern = pattern;
+    if (!pattern.name.isEmpty())
+        m_nameEdit->setText(pattern.name);
     rebuildPattern();
     updateControls();
     updateOkButtonState();
 }
 
 NoteAssemblerConfig CustomSubdivisionDialog::configForPattern(const SubdivisionPattern& pattern) const {
-    NoteAssemblerConfig cfg;
-    cfg.pixmapSize = QSize(48, 48);
+    return buildNoteAssemblerConfig(pattern);
+}
 
-    cfg.noteCount = pattern.pulses.size();
-    cfg.noteTypes.clear();
-    cfg.dottedNotes.clear();
-
-    auto isClose = [](double a, double b) { return std::abs(a - b) < 1e-6; };
-
-    bool isCompoundTime = false;
-
-    auto ceilingNoteTypeForDuration = [isCompoundTime](double dur) {
-        if (isCompoundTime) {
-            if (dur <= 1.0/6)        return AssembledNoteType::Sixteenth;
-            if (dur <= 1.0/3)        return AssembledNoteType::Eighth;
-            if (dur <= 2.0/3)        return AssembledNoteType::Eighth;
-            if (dur <= 1.0)          return AssembledNoteType::Quarter;
-            if (dur <= 2.0)          return AssembledNoteType::Half;
-            return AssembledNoteType::Whole;
-        } else {
-            if (dur <= 0.0625)   return AssembledNoteType::SixtyFourth;
-            if (dur <= 0.125)    return AssembledNoteType::ThirtySecond;
-            if (dur <= 0.1667)   return AssembledNoteType::Sixteenth;
-            if (dur <= 0.25)     return AssembledNoteType::Sixteenth;
-            if (dur <= 0.3333)   return AssembledNoteType::Eighth;
-            if (dur <= 0.5)      return AssembledNoteType::Eighth;
-            if (dur <= 0.6667)   return AssembledNoteType::Quarter;
-            if (dur <= 1.0)      return AssembledNoteType::Quarter;
-            if (dur <= 2.0)      return AssembledNoteType::Half;
-            return AssembledNoteType::Whole;
-        }
-    };
-
-    auto ceilingRestTypeForDuration = [isCompoundTime](double dur) {
-        if (isCompoundTime) {
-            if (dur <= 1.0/6)        return AssembledNoteType::Rest_Sixteenth;
-            if (dur <= 1.0/3)        return AssembledNoteType::Rest_Eighth;
-            if (dur <= 2.0/3)        return AssembledNoteType::Rest_Eighth;
-            return AssembledNoteType::Rest_Quarter;
-        } else {
-            if (dur <= 0.0625)   return AssembledNoteType::Rest_SixtyFourth;
-            if (dur <= 0.125)    return AssembledNoteType::Rest_ThirtySecond;
-            if (dur <= 0.1667)   return AssembledNoteType::Rest_Sixteenth;
-            if (dur <= 0.25)     return AssembledNoteType::Rest_Sixteenth;
-            if (dur <= 0.3333)   return AssembledNoteType::Rest_Eighth;
-            if (dur <= 0.5)      return AssembledNoteType::Rest_Eighth;
-            if (dur <= 0.6667)   return AssembledNoteType::Rest_Quarter;
-            return AssembledNoteType::Rest_Quarter;
-        }
-    };
-
-    bool isTupletOrTriplet =
-        (pattern.category == SubdivisionCategory::Tuplet) ||
-        pattern.name.toLower().contains("triplet");
-
-    if (isTupletOrTriplet) {
-        for (const SubdivisionPulse& p : pattern.pulses) {
-            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
-            if (p.isRest)
-                cfg.noteTypes.push_back(ceilingRestTypeForDuration(d));
-            else
-                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(d));
-            cfg.dottedNotes.push_back(p.isDotted);
-        }
-    } else {
-        for (const SubdivisionPulse& p : pattern.pulses) {
-            double d = (p.isDotted && p.duration > 0) ? p.duration / 1.5 : p.duration;
-            if (p.isRest) {
-                cfg.noteTypes.push_back(ceilingRestTypeForDuration(d));
-            } else {
-                cfg.noteTypes.push_back(ceilingNoteTypeForDuration(d));
-            }
-            cfg.dottedNotes.push_back(p.isDotted);
-        }
-    }
-    cfg.beamed = pattern.pulses.size() > 1;
-
-    bool isTriplet = pattern.name.toLower().contains("triplet");
-    if (pattern.category == SubdivisionCategory::Tuplet || isTriplet) {
-        cfg.tupletNumber = pattern.pulses.size();
-    } else if (!pattern.pulses.isEmpty()) {
-        // Detect triplet-duration notes in Custom patterns
-        auto isTripletDur = [](double d) {
-            return (std::abs(d - 1.0/3) < 0.005) ||
-                   (std::abs(d - 1.0/6) < 0.005) ||
-                   (std::abs(d - 2.0/3) < 0.005);
-        };
-        int tripletCount = 0;
-        for (const SubdivisionPulse& p : pattern.pulses)
-            if (isTripletDur(p.duration)) tripletCount++;
-
-        if (tripletCount == (int)pattern.pulses.size()) {
-            // All notes are triplet duration: draw a single group bracket + number
-            cfg.tupletNumber = pattern.pulses.size();
-        } else if (tripletCount > 0) {
-            // Mixed: mark each individual triplet note with its own number
-            cfg.perNoteTupletNumbers.assign(pattern.pulses.size(), 0);
-            for (int i = 0; i < (int)pattern.pulses.size(); ++i)
-                if (isTripletDur(pattern.pulses[i].duration))
-                    cfg.perNoteTupletNumbers[i] = 3;
-        }
-    }
-    return cfg;
+QString CustomSubdivisionDialog::chosenName() const {
+    QString n = m_nameEdit->text().trimmed();
+    return n.isEmpty() ? "Custom Pattern" : n;
 }
 
 void CustomSubdivisionDialog::setupPresets() {
@@ -454,12 +459,16 @@ void CustomSubdivisionDialog::setupPresets() {
     };
 
     QVector<Preset> presets = {
-        {"Two 8ths", {{0.5, false, false}, {0.5, false, false}}},
-        {"Four 16ths", {{0.25, false, false}, {0.25, false, false}, {0.25, false, false}, {0.25, false, false}}},
-        {"8th + 2x16th", {{0.5, false, false}, {0.25, false, false}, {0.25, false, false}}},
-        {"2x16th + 8th", {{0.25, false, false}, {0.25, false, false}, {0.5, false, false}}},
-        {"Triplets", {{1.0/3, false, false}, {1.0/3, false, false}, {1.0/3, false, false}}},
-        {"Dot8th + 16th", {{0.75, false, false, true}, {0.25, false, false}}}
+        {"Two 8ths",    {{NoteValue::Eighth,    false, false}, {NoteValue::Eighth,    false, false}}},
+        {"Four 16ths",  {{NoteValue::Sixteenth, false, false}, {NoteValue::Sixteenth, false, false},
+                         {NoteValue::Sixteenth, false, false}, {NoteValue::Sixteenth, false, false}}},
+        {"8th + 2x16th",{{NoteValue::Eighth,    false, false}, {NoteValue::Sixteenth, false, false},
+                         {NoteValue::Sixteenth, false, false}}},
+        {"2x16th + 8th",{{NoteValue::Sixteenth, false, false}, {NoteValue::Sixteenth, false, false},
+                         {NoteValue::Eighth,    false, false}}},
+        {"Triplets",    {{NoteValue::TripletEighth, false, false}, {NoteValue::TripletEighth, false, false},
+                         {NoteValue::TripletEighth, false, false}}},
+        {"Dot8th + 16th",{{NoteValue::DottedEighth, false, false}, {NoteValue::Sixteenth, false, false}}}
     };
 
     for (const auto& preset : presets) {
@@ -524,7 +533,6 @@ void CustomSubdivisionDialog::selectPulse(int index) {
 
 void CustomSubdivisionDialog::updateControls() {
     bool hasSelection = (m_selectedPulseIndex >= 0 && m_selectedPulseIndex < m_pattern.pulses.size());
-    m_durationCombo->setEnabled(hasSelection);
     m_noteButton->setEnabled(hasSelection);
     m_restButton->setEnabled(hasSelection);
     m_dottedButton->setEnabled(hasSelection);
@@ -533,25 +541,39 @@ void CustomSubdivisionDialog::updateControls() {
 
     if (hasSelection) {
         const SubdivisionPulse& pulse = m_pattern.pulses[m_selectedPulseIndex];
-        // If dotted, the stored duration is base*1.5 — divide back to find the base combo index
-        double lookupDuration = pulse.isDotted ? pulse.duration / 1.5 : pulse.duration;
-        int durationIndex = 7; // default to "Quarter"
-        for (int i = 0; i < DURATION_VALUES.size(); ++i) {
-            if (qAbs(lookupDuration - DURATION_VALUES[i]) < 0.001) {
-                durationIndex = i;
-                break;
-            }
-        }
-        m_durationCombo->blockSignals(true);
-        m_durationCombo->setCurrentIndex(durationIndex);
-        m_durationCombo->blockSignals(false);
-        m_durationLabel->setText(DURATION_NAMES[durationIndex]);
+        auto [tileIdx, dotted, tupletN] = decomposePulseNoteValue(pulse.noteValue);
+
+        // Sync tile selection
+        m_selectedTileIndex = tileIdx;
+        for (int i = 0; i < m_noteTiles.size(); ++i)
+            m_noteTiles[i]->setSelected(i == tileIdx);
+
+        // Sync tuplet buttons
+        m_selectedTuplet = tupletN;
+        if (m_tupletButtons[0]) m_tupletButtons[0]->setChecked(tupletN == 0);
+        for (int n = 2; n <= 9; ++n)
+            if (m_tupletButtons[n]) m_tupletButtons[n]->setChecked(n == tupletN);
+
+        // Show only valid tuplet buttons for current tile
+        if (m_tupletButtons[0]) m_tupletButtons[0]->setVisible(true);
+        for (int n = 2; n <= 9; ++n)
+            if (m_tupletButtons[n]) m_tupletButtons[n]->setVisible(isValidTuplet(tileIdx, n));
+
+        // Dotted: only available when no tuplet and note supports it
+        bool canDot = (tupletN == 0) && NOTE_VALUE_COMBO[tileIdx].canBeDotted;
+        m_dottedButton->setEnabled(hasSelection && canDot);
+        m_dottedButton->blockSignals(true);
+        m_dottedButton->setChecked(dotted);
+        m_dottedButton->blockSignals(false);
+
         m_noteButton->setChecked(!pulse.isRest);
         m_restButton->setChecked(pulse.isRest);
-        m_dottedButton->setChecked(pulse.isDotted);
         m_accentedButton->setChecked(pulse.accent);
     } else {
-        m_durationLabel->setText("-");
+        // No selection: keep × visible, hide number buttons
+        if (m_tupletButtons[0]) m_tupletButtons[0]->setVisible(true);
+        for (int n = 2; n <= 9; ++n)
+            if (m_tupletButtons[n]) m_tupletButtons[n]->setVisible(isValidTuplet(m_selectedTileIndex, n));
     }
 }
 
@@ -590,18 +612,15 @@ void CustomSubdivisionDialog::updateOkButtonState() {
 }
 
 void CustomSubdivisionDialog::onAddPulse() {
+    int  idx    = m_selectedTileIndex;
+    bool dotted = m_dottedButton->isChecked() && m_selectedTuplet == 0;
     SubdivisionPulse newPulse;
-    int idx = m_durationCombo->currentIndex();
-    bool dotted = m_dottedButton->isChecked();
-    newPulse.duration = DURATION_VALUES[idx] * (dotted ? 1.5 : 1.0);
-    newPulse.isRest = m_restButton->isChecked();
-    newPulse.isDotted = dotted;
-    newPulse.accent = m_accentedButton->isChecked();
-
+    newPulse.noteValue = resolveActiveNoteValue(idx, dotted, m_selectedTuplet);
+    newPulse.isRest    = m_restButton->isChecked();
+    newPulse.accent    = m_accentedButton->isChecked();
     m_pattern.pulses.append(newPulse);
     rebuildPattern();
     updateOkButtonState();
-
     selectPulse(m_pattern.pulses.size() - 1);
 }
 
@@ -623,12 +642,78 @@ void CustomSubdivisionDialog::onPulseClicked() {
     // Handled by lambda connections in rebuildPattern()
 }
 
-void CustomSubdivisionDialog::onDurationChanged() {
+void CustomSubdivisionDialog::onNoteTileClicked(int idx) {
+    m_selectedTileIndex = idx;
+    for (int i = 0; i < m_noteTiles.size(); ++i)
+        m_noteTiles[i]->setSelected(i == idx);
+
+    // If current tuplet is no longer valid for the new base, reset to ×
+    if (!isValidTuplet(idx, m_selectedTuplet)) {
+        m_selectedTuplet = 0;
+        if (m_tupletButtons[0]) m_tupletButtons[0]->setChecked(true);
+        for (int n = 2; n <= 9; ++n)
+            if (m_tupletButtons[n]) m_tupletButtons[n]->setChecked(false);
+    }
+    // Show only valid tuplet buttons for the new tile
+    if (m_tupletButtons[0]) m_tupletButtons[0]->setVisible(true);
+    for (int n = 2; n <= 9; ++n)
+        if (m_tupletButtons[n]) m_tupletButtons[n]->setVisible(isValidTuplet(idx, n));
+
+    // Dotted
+    bool canDot = (m_selectedTuplet == 0) && NOTE_VALUE_COMBO[idx].canBeDotted;
+    bool hasSel = (m_selectedPulseIndex >= 0);
+    m_dottedButton->setEnabled(hasSel && canDot);
+    if (!canDot) {
+        m_dottedButton->blockSignals(true);
+        m_dottedButton->setChecked(false);
+        m_dottedButton->blockSignals(false);
+    }
+
+    bool dotted = canDot && m_dottedButton->isChecked();
     if (m_selectedPulseIndex >= 0 && m_selectedPulseIndex < m_pattern.pulses.size()) {
-        int idx = m_durationCombo->currentIndex();
-        bool isDotted = m_pattern.pulses[m_selectedPulseIndex].isDotted;
-        m_pattern.pulses[m_selectedPulseIndex].duration = DURATION_VALUES[idx] * (isDotted ? 1.5 : 1.0);
-        m_durationLabel->setText(DURATION_NAMES[idx]);
+        // A pulse is already selected — update it in place
+        m_pattern.pulses[m_selectedPulseIndex].noteValue =
+            resolveActiveNoteValue(idx, dotted, m_selectedTuplet);
+        m_pulseWidgets[m_selectedPulseIndex]->setPulse(m_pattern.pulses[m_selectedPulseIndex]);
+        updatePreview();
+    } else {
+        // Nothing selected — append a new pulse immediately
+        SubdivisionPulse newPulse;
+        newPulse.noteValue = resolveActiveNoteValue(idx, dotted, m_selectedTuplet);
+        newPulse.isRest    = m_restButton->isChecked();
+        newPulse.accent    = m_accentedButton->isChecked();
+        m_pattern.pulses.append(newPulse);
+        rebuildPattern();
+        updateOkButtonState();
+        selectPulse(m_pattern.pulses.size() - 1);
+    }
+}
+
+void CustomSubdivisionDialog::onTupletButtonClicked(int tupletN) {
+    // Toggle off if already selected (click same number again → back to ×)
+    if (tupletN != 0 && m_selectedTuplet == tupletN)
+        tupletN = 0;
+    m_selectedTuplet = tupletN;
+
+    // Update button checked states
+    if (m_tupletButtons[0]) m_tupletButtons[0]->setChecked(tupletN == 0);
+    for (int n = 2; n <= 9; ++n)
+        if (m_tupletButtons[n]) m_tupletButtons[n]->setChecked(n == tupletN);
+
+    // Dotted is disabled whenever a tuplet is active
+    bool canDot = (tupletN == 0) && NOTE_VALUE_COMBO[m_selectedTileIndex].canBeDotted;
+    bool hasSel = (m_selectedPulseIndex >= 0);
+    m_dottedButton->setEnabled(hasSel && canDot);
+    if (!canDot) {
+        m_dottedButton->blockSignals(true);
+        m_dottedButton->setChecked(false);
+        m_dottedButton->blockSignals(false);
+    }
+
+    if (m_selectedPulseIndex >= 0 && m_selectedPulseIndex < m_pattern.pulses.size()) {
+        bool dotted = canDot && m_dottedButton->isChecked();
+        m_pattern.pulses[m_selectedPulseIndex].noteValue =
+            resolveActiveNoteValue(m_selectedTileIndex, dotted, tupletN);
         m_pulseWidgets[m_selectedPulseIndex]->setPulse(m_pattern.pulses[m_selectedPulseIndex]);
         updatePreview();
     }
@@ -636,16 +721,12 @@ void CustomSubdivisionDialog::onDurationChanged() {
 
 void CustomSubdivisionDialog::onTypeChanged() {
     if (m_selectedPulseIndex >= 0 && m_selectedPulseIndex < m_pattern.pulses.size()) {
-        bool wasDotted = m_pattern.pulses[m_selectedPulseIndex].isDotted;
-        bool nowDotted = m_dottedButton->isChecked();
-        if (nowDotted != wasDotted) {
-            // Adjust the stored duration to include or exclude the 1.5 multiplier
-            m_pattern.pulses[m_selectedPulseIndex].duration *= nowDotted ? 1.5 : (1.0 / 1.5);
-        }
-        m_pattern.pulses[m_selectedPulseIndex].isRest = m_restButton->isChecked();
-        m_pattern.pulses[m_selectedPulseIndex].isDotted = nowDotted;
-        m_pattern.pulses[m_selectedPulseIndex].accent = m_accentedButton->isChecked();
-
+        bool canDot = (m_selectedTuplet == 0) && NOTE_VALUE_COMBO[m_selectedTileIndex].canBeDotted;
+        bool dotted = canDot && m_dottedButton->isChecked();
+        m_pattern.pulses[m_selectedPulseIndex].noteValue =
+            resolveActiveNoteValue(m_selectedTileIndex, dotted, m_selectedTuplet);
+        m_pattern.pulses[m_selectedPulseIndex].isRest  = m_restButton->isChecked();
+        m_pattern.pulses[m_selectedPulseIndex].accent  = m_accentedButton->isChecked();
         m_pulseWidgets[m_selectedPulseIndex]->setPulse(m_pattern.pulses[m_selectedPulseIndex]);
         updatePreview();
     }

@@ -7,7 +7,7 @@ PatternEditorWidget::PatternEditorWidget(QWidget* parent)
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(8);
 
-    durationValues = {1.0, 0.5, 0.25, 1.0/3.0};
+    baseNoteValues = {NoteValue::Quarter, NoteValue::Eighth, NoteValue::Sixteenth, NoteValue::TripletEighth};
 
     addPulseBtn = new QPushButton("Add Pulse", this);
     connect(addPulseBtn, &QPushButton::clicked, this, &PatternEditorWidget::onAddPulse);
@@ -31,25 +31,38 @@ PatternEditorWidget::PatternEditorWidget(QWidget* parent)
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
 }
 
-QString PatternEditorWidget::durationLabelForValue(double val) const {
-    if (qAbs(val - 1.0) < 0.001) return "Quarter";
-    if (qAbs(val - 0.5) < 0.001) return "Eighth";
-    if (qAbs(val - 0.25) < 0.001) return "Sixteenth";
-    if (qAbs(val - 1.0/3.0) < 0.001) return "Triplet Eighth";
-    return QString::number(val);
+// Returns human-readable label for a base NoteValue
+QString PatternEditorWidget::noteValueLabel(NoteValue nv) const {
+    switch (nv) {
+    case NoteValue::Quarter:       return "Quarter";
+    case NoteValue::Eighth:        return "Eighth";
+    case NoteValue::Sixteenth:     return "Sixteenth";
+    case NoteValue::TripletEighth: return "Triplet Eighth";
+    case NoteValue::Half:          return "Half";
+    case NoteValue::ThirtySecond:  return "32nd";
+    default:                       return "Quarter";
+    }
 }
 
-double PatternEditorWidget::valueForDurationIndex(int idx) const {
-    if (idx >= 0 && idx < durationValues.size())
-        return durationValues[idx];
-    return 0.25;
+NoteValue PatternEditorWidget::noteValueForIndex(int idx) const {
+    if (idx >= 0 && idx < baseNoteValues.size())
+        return baseNoteValues[idx];
+    return NoteValue::Quarter;
 }
 
-int PatternEditorWidget::indexForDurationValue(double val) const {
-    for (int i = 0; i < durationValues.size(); ++i)
-        if (qAbs(durationValues[i] - val) < 0.001)
-            return i;
-    return 2;
+int PatternEditorWidget::indexForBaseNoteValue(NoteValue nv) const {
+    // Strip dotting to find base
+    NoteValue base = nv;
+    switch (nv) {
+    case NoteValue::DottedHalf:      base = NoteValue::Half;     break;
+    case NoteValue::DottedQuarter:   base = NoteValue::Quarter;  break;
+    case NoteValue::DottedEighth:    base = NoteValue::Eighth;   break;
+    case NoteValue::DottedSixteenth: base = NoteValue::Sixteenth; break;
+    default: break;
+    }
+    for (int i = 0; i < baseNoteValues.size(); ++i)
+        if (baseNoteValues[i] == base) return i;
+    return 0;
 }
 
 void PatternEditorWidget::setPattern(const SubdivisionPattern& pattern, double baseDuration)
@@ -85,9 +98,11 @@ void PatternEditorWidget::setPattern(const SubdivisionPattern& pattern, double b
         row->setSpacing(12);
 
         pc.durationCombo = new QComboBox(pc.widget);
-        for (double dur : durationValues)
-            pc.durationCombo->addItem(durationLabelForValue(dur));
-        pc.durationCombo->setCurrentIndex(indexForDurationValue(pulse.duration));
+        for (NoteValue nv : baseNoteValues)
+            pc.durationCombo->addItem(noteValueLabel(nv));
+        // Determine if this pulse is dotted
+        bool isDotted = getNoteValueInfo(pulse.noteValue).dotted;
+        pc.durationCombo->setCurrentIndex(indexForBaseNoteValue(pulse.noteValue));
         row->addWidget(pc.durationCombo);
         connect(pc.durationCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, idx=pulseControls.size()] (int) { onDurationChanged(idx); });
 
@@ -96,7 +111,7 @@ void PatternEditorWidget::setPattern(const SubdivisionPattern& pattern, double b
         row->addWidget(pc.noteCheck);
 
         pc.dotCheck = new QCheckBox("Dotted", pc.widget);
-        pc.dotCheck->setChecked(pulse.isDotted);
+        pc.dotCheck->setChecked(isDotted);
         row->addWidget(pc.dotCheck);
 
         pc.removeBtn = new QPushButton("Remove", pc.widget);
@@ -119,9 +134,21 @@ SubdivisionPattern PatternEditorWidget::currentPattern() const
     pattern.name = "Custom";
     for (const auto& pc : pulseControls) {
         SubdivisionPulse pulse;
-        pulse.duration = valueForDurationIndex(pc.durationCombo->currentIndex());
+        NoteValue base = noteValueForIndex(pc.durationCombo->currentIndex());
+        bool dotted = pc.dotCheck->isChecked();
+        // Map base + dotted to the proper NoteValue
+        if (dotted) {
+            switch (base) {
+            case NoteValue::Half:      pulse.noteValue = NoteValue::DottedHalf; break;
+            case NoteValue::Quarter:   pulse.noteValue = NoteValue::DottedQuarter; break;
+            case NoteValue::Eighth:    pulse.noteValue = NoteValue::DottedEighth; break;
+            case NoteValue::Sixteenth: pulse.noteValue = NoteValue::DottedSixteenth; break;
+            default:                   pulse.noteValue = base; break;
+            }
+        } else {
+            pulse.noteValue = base;
+        }
         pulse.isRest = !pc.noteCheck->isChecked();
-        pulse.isDotted = pc.dotCheck->isChecked();
         pattern.pulses.push_back(pulse);
     }
     return pattern;
@@ -170,9 +197,9 @@ void PatternEditorWidget::onAddPulse()
     row->setSpacing(12);
 
     pc.durationCombo = new QComboBox(pc.widget);
-    for (double dur : durationValues)
-        pc.durationCombo->addItem(durationLabelForValue(dur));
-    pc.durationCombo->setCurrentIndex(indexForDurationValue(m_baseDuration));
+    for (NoteValue nv : baseNoteValues)
+        pc.durationCombo->addItem(noteValueLabel(nv));
+    pc.durationCombo->setCurrentIndex(0);  // default to Quarter
     row->addWidget(pc.durationCombo);
     connect(pc.durationCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this, idx=pulseControls.size()] (int) { onDurationChanged(idx); });
 

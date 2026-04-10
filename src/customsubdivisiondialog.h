@@ -13,9 +13,11 @@
 #include <QMouseEvent>
 #include <QPaintEvent>
 #include <QGridLayout>
-#include <QComboBox> // Required for m_durationCombo
+#include <QLineEdit>
 #include "subdivisionpattern.h"
 #include "noteassembler.h"
+
+class NoteTileWidget;  // defined in .cpp
 
 class SubdivisionPulseWidget : public QWidget {
     Q_OBJECT
@@ -50,12 +52,14 @@ public:
 
     void setPattern(const SubdivisionPattern& pattern);
     SubdivisionPattern chosenPattern() const { return m_pattern; }
+    QString chosenName() const;
 
 private slots:
     void onAddPulse();
     void onRemoveSelected();
     void onPulseClicked();
-    void onDurationChanged();
+    void onNoteTileClicked(int idx);
+    void onTupletButtonClicked(int tupletN);
     void onTypeChanged();
     void onClearAll();
     void onPresetSelected();
@@ -78,8 +82,11 @@ private:
     QHBoxLayout* m_pulseLayout;
     QScrollArea* m_scrollArea;
 
-    QComboBox* m_durationCombo; // Now using ComboBox for durations
-    QLabel* m_durationLabel;
+    QVector<NoteTileWidget*> m_noteTiles;
+    int m_selectedTileIndex = 4; // Default to Quarter (index in 7-item NOTE_VALUE_COMBO)
+    // Tuplet button row: index = tupletN (0=×, 1 unused, 2–9)
+    QVector<QPushButton*> m_tupletButtons; // size 10
+    int m_selectedTuplet = 0;
     QPushButton* m_noteButton;
     QPushButton* m_restButton;
     QPushButton* m_dottedButton;
@@ -92,6 +99,7 @@ private:
 
     QLabel* m_previewLabel;
     QPushButton* m_okButton;
+    QLineEdit* m_nameEdit;
 
     QVector<SubdivisionPulseWidget*> m_pulseWidgets;
 

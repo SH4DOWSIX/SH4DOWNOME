@@ -47,10 +47,10 @@ private:
     QGridLayout* gridLayout;
     QPushButton* addPulseBtn;
 
-    QList<double> durationValues;
-    QString durationLabelForValue(double val) const;
-    double valueForDurationIndex(int idx) const;
-    int indexForDurationValue(double val) const;
+    QList<NoteValue> baseNoteValues;
+    QString noteValueLabel(NoteValue nv) const;
+    NoteValue noteValueForIndex(int idx) const;
+    int indexForBaseNoteValue(NoteValue nv) const;
 
     void rebuildUI();
     void syncToControls();
