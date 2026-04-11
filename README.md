@@ -113,3 +113,7 @@ The resulting binary is statically linked — no Qt or runtime DLLs are needed o
 | Build system | CMake |
 | Persistence | JSON (`presets.json`) / `QSettings` |
 | Notation rendering | Custom SVG assembler |
+
+## License
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
