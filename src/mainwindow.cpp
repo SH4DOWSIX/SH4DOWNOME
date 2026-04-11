@@ -858,7 +858,7 @@ void MainWindow::setupPolyrhythmGridHighlightOrder(int mainBeats, int polyBeats)
 
 void MainWindow::onSubdivisionImageClicked() {
     bool isCompoundTime = (currentDenominator == 8 && currentNumerator % 3 == 0 && currentNumerator > 3);
-    SubdivisionSelectorDialog dlg(this, isCompoundTime, currentNumerator, currentDenominator);
+    SubdivisionSelectorDialog dlg(this, isCompoundTime, currentNumerator, currentDenominator, &metronome);
     if (dlg.exec() == QDialog::Accepted) {
         // Change subdivision pattern first
         SubdivisionPattern chosen = dlg.chosenPattern();

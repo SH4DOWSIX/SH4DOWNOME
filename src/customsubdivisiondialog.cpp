@@ -1,4 +1,5 @@
 #include "customsubdivisiondialog.h"
+#include "metronomeengine.h"
 #include "noteassembler.h"
 #include <QPainter>
 #include <QMouseEvent>
@@ -8,6 +9,8 @@
 #include <QToolTip>
 #include <QApplication>
 #include <QMessageBox>
+#include <QKeySequence>
+#include <QShortcut>
 #include <functional>
 
 // Human-readable name for any NoteValue — derived dynamically from NoteValueInfo.
@@ -96,6 +99,7 @@ SubdivisionPulseWidget::SubdivisionPulseWidget(const SubdivisionPulse& pulse, QW
 {
     setFixedSize(40, 60);
     setCursor(Qt::PointingHandCursor);
+    setMouseTracking(true);
     updateToolTip();
 }
 
@@ -128,13 +132,22 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
 
     QColor bgColor;
     if (m_selected) {
-        bgColor = m_pulse.accent ? QColor(150, 100, 200) : QColor(100, 150, 200);
+        bgColor = m_pulse.accent ? QColor(130, 80, 200) : QColor(50, 120, 210);
     } else {
         bgColor = m_pulse.accent ? QColor(80, 60, 100) : QColor(60, 60, 60);
     }
     p.fillRect(rect(), bgColor);
-    p.setPen(QPen(m_selected ? Qt::white : Qt::gray, 2));
-    p.drawRect(rect().adjusted(1, 1, -1, -1));
+
+    // Border: bright solid highlight for selected, subtle for unselected
+    if (m_selected) {
+        p.setPen(QPen(QColor(120, 220, 255), 3));
+        p.drawRect(rect().adjusted(1, 1, -2, -2));
+        // Top accent strip to make selection unmistakable
+        p.fillRect(QRect(0, 0, width(), 4), QColor(120, 220, 255));
+    } else {
+        p.setPen(QPen(QColor(90, 90, 90), 1));
+        p.drawRect(rect().adjusted(0, 0, -1, -1));
+    }
 
     if (m_pulse.accent) {
         p.setPen(QPen(Qt::yellow, 2));
@@ -156,13 +169,14 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
 
     const int textAreaH = 12;
     const int textGap   = 4;
-    QRect contentRect = rect().adjusted(4, 4, -4, -(textAreaH + textGap));
+    int topOffset = m_selected ? 4 : 0;
+    QRect contentRect = rect().adjusted(4, 4 + topOffset, -4, -(textAreaH + textGap));
     QPixmap scaledNote = notePixmap.scaled(contentRect.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
     QRect noteRect = scaledNote.rect();
     noteRect.moveTopLeft(QPoint(contentRect.center().x() - noteRect.width() / 2, contentRect.top()));
     p.drawPixmap(noteRect, scaledNote);
 
-    p.setPen(Qt::white);
+    p.setPen(m_selected ? QColor(220, 240, 255) : Qt::white);
     QFont smallFont = font();
     smallFont.setPointSize(6);
     p.setFont(smallFont);
@@ -173,9 +187,32 @@ void SubdivisionPulseWidget::paintEvent(QPaintEvent* event) {
 
 void SubdivisionPulseWidget::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
+        m_dragStartPos = event->pos();
+        m_dragging = false;
         emit clicked();
     }
     QWidget::mousePressEvent(event);
+}
+
+void SubdivisionPulseWidget::mouseMoveEvent(QMouseEvent* event) {
+    if ((event->buttons() & Qt::LeftButton) && widgetIndex >= 0) {
+        if (!m_dragging && (event->pos() - m_dragStartPos).manhattanLength() > 8) {
+            m_dragging = true;
+            setCursor(Qt::ClosedHandCursor);
+        }
+        if (m_dragging) {
+            emit dragRequested(widgetIndex, mapToGlobal(event->pos()).x());
+        }
+    }
+    QWidget::mouseMoveEvent(event);
+}
+
+void SubdivisionPulseWidget::mouseReleaseEvent(QMouseEvent* event) {
+    if (m_dragging) {
+        m_dragging = false;
+        setCursor(Qt::PointingHandCursor);
+    }
+    QWidget::mouseReleaseEvent(event);
 }
 
 // ─── NoteTileWidget ──────────────────────────────────────────────────────────
@@ -253,12 +290,14 @@ private:
     QPixmap m_notePixmap;
 };
 
-CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
-    : QDialog(parent)
+CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent, MetronomeEngine* engine,
+                                                 int numerator, int denominator, bool compoundTime)
+    : QDialog(parent), m_previewEngine(engine),
+      m_numerator(numerator), m_denominator(denominator), m_compoundTime(compoundTime)
 {
     setWindowTitle("Create Custom Subdivision");
     setModal(true);
-    setFixedSize(650, 620);
+    setFixedSize(650, 640);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(12);
@@ -320,7 +359,7 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     durationLayout->addStretch();
     controlLayout->addLayout(durationLayout);
 
-    // Tuplet row: [×] [2] [3] [4] [5] [6] [7] [8] [9]
+    // Tuplet row: [None] [2] [3] [4] [5] [6] [7] [8] [9]
     QHBoxLayout* tupletLayout = new QHBoxLayout;
     tupletLayout->setSpacing(3);
     tupletLayout->setContentsMargins(0, 0, 0, 0);
@@ -329,20 +368,20 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     m_selectedTuplet = 0;
     auto makeTupletBtn = [&](int n, const QString& label) {
         QPushButton* btn = new QPushButton(label, this);
-        btn->setFixedWidth(30);
+        btn->setFixedWidth(n == 0 ? 44 : 30);
         btn->setCheckable(true);
-        btn->setChecked(n == 0); // × is initially selected
+        btn->setChecked(n == 0); // None is initially selected
         connect(btn, &QPushButton::clicked, this, [this, n]() { onTupletButtonClicked(n); });
         m_tupletButtons[n] = btn;
         tupletLayout->addWidget(btn);
     };
-    makeTupletBtn(0, "×");
+    makeTupletBtn(0, "None");
     for (int n = 2; n <= 9; ++n)
         makeTupletBtn(n, QString::number(n));
     tupletLayout->addStretch();
     controlLayout->addLayout(tupletLayout);
 
-    // Type controls
+    // Type controls — Note / Rest / Dotted / Accented all in one logical group
     QHBoxLayout* typeLayout = new QHBoxLayout;
     typeLayout->addWidget(new QLabel("Type:", this));
 
@@ -355,27 +394,35 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     m_typeGroup->addButton(m_noteButton, 0);
     m_typeGroup->addButton(m_restButton, 1);
 
-    typeLayout->addWidget(m_noteButton);
-    typeLayout->addWidget(m_restButton);
-    typeLayout->addStretch();
-
     m_dottedButton = new QPushButton("Dotted", this);
     m_dottedButton->setCheckable(true);
-    typeLayout->addWidget(m_dottedButton);
 
-    // NEW: Add Accented button
     m_accentedButton = new QPushButton("Accented", this);
     m_accentedButton->setCheckable(true);
+
+    typeLayout->addWidget(m_noteButton);
+    typeLayout->addWidget(m_restButton);
+
+    // Thin separator between note type and modifiers
+    QFrame* sep = new QFrame(this);
+    sep->setFrameShape(QFrame::VLine);
+    sep->setFrameShadow(QFrame::Sunken);
+    sep->setFixedWidth(8);
+    typeLayout->addWidget(sep);
+
+    typeLayout->addWidget(m_dottedButton);
     typeLayout->addWidget(m_accentedButton);
+    typeLayout->addStretch();
 
     controlLayout->addLayout(typeLayout);
 
     mainLayout->addWidget(controlGroup);
 
-    // Action buttons
+    // Action buttons + total duration + optional preview
     QHBoxLayout* actionLayout = new QHBoxLayout;
 
     m_addButton = new QPushButton("Add Pulse", this);
+    m_addButton->setToolTip("Add new pulse after the selected one (or at end if none selected)");
     m_removeButton = new QPushButton("Remove Selected", this);
     m_clearButton = new QPushButton("Clear All", this);
 
@@ -384,7 +431,33 @@ CustomSubdivisionDialog::CustomSubdivisionDialog(QWidget* parent)
     actionLayout->addWidget(m_clearButton);
     actionLayout->addStretch();
 
+    m_totalDurationLabel = new QLabel("Total: 0 beats", this);
+    m_totalDurationLabel->setStyleSheet("color: #aaaaaa; font-size: 11px;");
+    actionLayout->addWidget(m_totalDurationLabel);
+
+    // Play preview button (only shown when a MetronomeEngine is available)
+    if (m_previewEngine) {
+        m_previewButton = new QPushButton("▶ Preview", this);
+        m_previewButton->setToolTip("Play the current pattern once at the current tempo");
+        actionLayout->addWidget(m_previewButton);
+        m_previewTimer = new QTimer(this);
+        m_previewTimer->setSingleShot(true);
+        connect(m_previewButton, &QPushButton::clicked, this, &CustomSubdivisionDialog::onPreviewClicked);
+        connect(m_previewTimer, &QTimer::timeout, this, [this]() {
+            if (m_isPreviewing) {
+                m_previewEngine->stop();
+                m_previewEngine->setSubdivisionPattern(m_savedPreviewPattern);
+                m_previewButton->setText("▶ Preview");
+                m_isPreviewing = false;
+            }
+        });
+    }
+
     mainLayout->addLayout(actionLayout);
+
+    // Ctrl+Z undo
+    QShortcut* undoShortcut = new QShortcut(QKeySequence::Undo, this);
+    connect(undoShortcut, &QShortcut::activated, this, &CustomSubdivisionDialog::onUndo);
 
     // Common presets
     setupPresets();
@@ -468,28 +541,40 @@ void CustomSubdivisionDialog::setupPresets() {
                          {NoteValue::Eighth,    false, false}}},
         {"Triplets",    {{NoteValue::TripletEighth, false, false}, {NoteValue::TripletEighth, false, false},
                          {NoteValue::TripletEighth, false, false}}},
-        {"Dot8th + 16th",{{NoteValue::DottedEighth, false, false}, {NoteValue::Sixteenth, false, false}}}
+        {"Dot8th + 16th",{{NoteValue::DottedEighth, false, false}, {NoteValue::Sixteenth, false, false}}},
+        {"16th + Dot8th",{{NoteValue::Sixteenth, false, false}, {NoteValue::DottedEighth, false, false}}},
+        {"4 32nds",     {{NoteValue::ThirtySecond, false, false}, {NoteValue::ThirtySecond, false, false},
+                         {NoteValue::ThirtySecond, false, false}, {NoteValue::ThirtySecond, false, false}}},
+        {"Swing (Dot8+16)",{{NoteValue::DottedEighth, false, false}, {NoteValue::Sixteenth, false, false}}},
+        {"Quarter",     {{NoteValue::Quarter, false, false}}},
     };
 
-    for (const auto& preset : presets) {
-        QPushButton* btn = new QPushButton(preset.name, this);
-        btn->setMaximumWidth(100);
-        connect(btn, &QPushButton::clicked, this, [this, preset]() {
-            for (const auto& pulse : preset.pulses) {
-                m_pattern.pulses.append(pulse);
-            }
-            rebuildPattern();
-            updatePreview();
-            updateOkButtonState();
+    m_presetCombo = new QComboBox(this);
+    for (const auto& p : presets)
+        m_presetCombo->addItem(p.name);
+    m_presetCombo->setMinimumWidth(130);
 
-            if (!preset.pulses.isEmpty()) {
-                int newPulseIndex = m_pattern.pulses.size() - preset.pulses.size();
-                selectPulse(newPulseIndex);
-            }
-        });
-        m_presetLayout->addWidget(btn);
-    }
+    QPushButton* applyBtn = new QPushButton("Apply", this);
+    applyBtn->setToolTip("Append this preset's pulses to the current pattern");
+    connect(applyBtn, &QPushButton::clicked, this, [this, presets]() {
+        int idx = m_presetCombo->currentIndex();
+        if (idx < 0 || idx >= presets.size()) return;
+        pushUndo();
+        const auto& preset = presets[idx];
+        int insertAt = (m_selectedPulseIndex >= 0)
+                       ? m_selectedPulseIndex + 1
+                       : m_pattern.pulses.size();
+        for (int i = 0; i < preset.pulses.size(); ++i)
+            m_pattern.pulses.insert(insertAt + i, preset.pulses[i]);
+        rebuildPattern();
+        updatePreview();
+        updateOkButtonState();
+        if (!preset.pulses.isEmpty())
+            selectPulse(insertAt + preset.pulses.size() - 1);
+    });
 
+    m_presetLayout->addWidget(m_presetCombo);
+    m_presetLayout->addWidget(applyBtn);
     m_presetLayout->addStretch();
 }
 
@@ -499,14 +584,23 @@ void CustomSubdivisionDialog::rebuildPattern() {
     }
     m_pulseWidgets.clear();
 
+    // Remove all items from the layout except the trailing stretch
+    while (m_pulseLayout->count() > 1) {
+        QLayoutItem* item = m_pulseLayout->takeAt(0);
+        if (item->widget()) item->widget()->deleteLater();
+        delete item;
+    }
+
     for (int i = 0; i < m_pattern.pulses.size(); ++i) {
         SubdivisionPulseWidget* widget = new SubdivisionPulseWidget(m_pattern.pulses[i], this);
+        widget->widgetIndex = i;
         connect(widget, &SubdivisionPulseWidget::clicked, this, [this, i]() {
             selectPulse(i);
         });
         connect(widget, &SubdivisionPulseWidget::changed, this, &CustomSubdivisionDialog::updatePreview);
+        connect(widget, &SubdivisionPulseWidget::dragRequested, this, &CustomSubdivisionDialog::onMovePulse);
 
-        m_pulseLayout->insertWidget(i, widget);
+        m_pulseLayout->insertWidget(m_pulseLayout->count() - 1, widget);
         m_pulseWidgets.append(widget);
     }
 
@@ -516,6 +610,7 @@ void CustomSubdivisionDialog::rebuildPattern() {
 
     updateControls();
     updatePreview();
+    updateTotalDuration();
 }
 
 void CustomSubdivisionDialog::selectPulse(int index) {
@@ -598,6 +693,7 @@ void CustomSubdivisionDialog::updatePreview() {
     m_previewLabel->setPixmap(scaledPreview);
     m_previewLabel->setAlignment(Qt::AlignBottom | Qt::AlignHCenter);
     m_previewLabel->setText("");
+    updateTotalDuration();
 }
 
 void CustomSubdivisionDialog::updateOkButtonState() {
@@ -612,20 +708,26 @@ void CustomSubdivisionDialog::updateOkButtonState() {
 }
 
 void CustomSubdivisionDialog::onAddPulse() {
+    pushUndo();
     int  idx    = m_selectedTileIndex;
     bool dotted = m_dottedButton->isChecked() && m_selectedTuplet == 0;
     SubdivisionPulse newPulse;
     newPulse.noteValue = resolveActiveNoteValue(idx, dotted, m_selectedTuplet);
     newPulse.isRest    = m_restButton->isChecked();
     newPulse.accent    = m_accentedButton->isChecked();
-    m_pattern.pulses.append(newPulse);
+
+    int insertAt = (m_selectedPulseIndex >= 0 && m_selectedPulseIndex < m_pattern.pulses.size())
+                   ? m_selectedPulseIndex + 1
+                   : m_pattern.pulses.size();
+    m_pattern.pulses.insert(insertAt, newPulse);
     rebuildPattern();
     updateOkButtonState();
-    selectPulse(m_pattern.pulses.size() - 1);
+    selectPulse(insertAt);
 }
 
 void CustomSubdivisionDialog::onRemoveSelected() {
     if (m_selectedPulseIndex >= 0 && m_selectedPulseIndex < m_pattern.pulses.size()) {
+        pushUndo();
         m_pattern.pulses.removeAt(m_selectedPulseIndex);
         rebuildPattern();
         updateOkButtonState();
@@ -633,6 +735,8 @@ void CustomSubdivisionDialog::onRemoveSelected() {
 }
 
 void CustomSubdivisionDialog::onClearAll() {
+    if (!m_pattern.pulses.isEmpty())
+        pushUndo();
     m_pattern.pulses.clear();
     rebuildPattern();
     updateOkButtonState();
@@ -743,4 +847,177 @@ void CustomSubdivisionDialog::onOkClicked() {
         return;
     }
     accept();
+}
+
+void CustomSubdivisionDialog::pushUndo() {
+    m_undoStack.append(m_pattern.pulses);
+    // Cap undo history at 50 entries
+    if (m_undoStack.size() > 50)
+        m_undoStack.removeFirst();
+}
+
+void CustomSubdivisionDialog::onUndo() {
+    if (m_undoStack.isEmpty()) return;
+    m_pattern.pulses = m_undoStack.takeLast();
+    m_selectedPulseIndex = -1;
+    rebuildPattern();
+    updateOkButtonState();
+}
+
+void CustomSubdivisionDialog::updateTotalDuration() {
+    if (!m_totalDurationLabel) return;
+    if (m_pattern.pulses.isEmpty()) {
+        m_totalDurationLabel->setText("Total: 0 beats");
+        m_totalDurationLabel->setStyleSheet("color: #aaaaaa; font-size: 11px;");
+        return;
+    }
+
+    // Beat unit in noteValueBeatFraction terms (same logic as rebuildPattern)
+    double beatUnit = 1.0;
+    if (!m_compoundTime) {
+        if (m_denominator == 2) beatUnit = 2.0;
+        else if (m_denominator == 1) beatUnit = 4.0;
+    }
+
+    // Sum raw fractions, then divide by beatUnit to get musical beat count
+    double totalRaw = 0.0;
+    for (const auto& pulse : m_pattern.pulses)
+        totalRaw += noteValueBeatFraction(pulse.noteValue, m_compoundTime);
+    double rounded = std::round((totalRaw / beatUnit) * 10000.0) / 10000.0;
+
+    // Beats per bar in the active time signature
+    int beatsPerBar = m_compoundTime ? (m_numerator / 3) : m_numerator;
+
+    // Format the beat count as a clean fraction
+    auto beatText = [](double v) -> QString {
+        // Try to express as n/3 (covers triplet values cleanly)
+        double t3 = std::round(v * 3.0);
+        if (std::abs(t3 / 3.0 - v) < 0.0001) {
+            int n = int(t3);
+            return (n % 3 == 0) ? QString::number(n / 3) : QString("%1/3").arg(n);
+        }
+        // Try n/2
+        double t2 = std::round(v * 2.0);
+        if (std::abs(t2 / 2.0 - v) < 0.0001) {
+            int n = int(t2);
+            return (n % 2 == 0) ? QString::number(n / 2) : QString("%1/2").arg(n);
+        }
+        return QString::number(v, 'g', 4);
+    };
+
+    // Build contextual suffix: "of N per bar", "= 1 bar", "= N bars"
+    QString suffix;
+    double barsExact = rounded / beatsPerBar;
+    double barsRounded = std::round(barsExact * 10000.0) / 10000.0;
+    bool isWholeBars = std::fmod(barsRounded, 1.0) < 0.001;
+    bool isWholeBeats = std::fmod(rounded, 1.0) < 0.001;
+
+    if (isWholeBars && barsRounded >= 1.0) {
+        int bars = int(barsRounded);
+        suffix = (bars == 1) ? " = 1 bar" : QString(" = %1 bars").arg(bars);
+    } else {
+        suffix = QString(" of %1 per bar").arg(beatsPerBar);
+    }
+
+    // Beat label — "beat" vs "compound beat" for clarity
+    QString beatWord = m_compoundTime ? "compound beat" : "beat";
+    QString beatPlural = (rounded == 1.0) ? beatWord : (beatWord + "s");
+
+    m_totalDurationLabel->setText(
+        QString("Total: %1 %2%3").arg(beatText(rounded), beatPlural, suffix));
+
+    // Colour: green = fills whole bars exactly, teal = whole beats, yellow = fractional
+    QColor col;
+    if (isWholeBars)
+        col = QColor(100, 220, 100);   // exact bar fill → green
+    else if (isWholeBeats)
+        col = QColor(80, 200, 200);    // whole beat count → teal
+    else
+        col = QColor(220, 200, 80);    // fractional → yellow
+    m_totalDurationLabel->setStyleSheet(
+        QString("color: %1; font-size: 11px;").arg(col.name()));
+}
+
+void CustomSubdivisionDialog::onPreviewClicked() {
+    if (!m_previewEngine || !m_previewButton) return;
+
+    if (m_isPreviewing) {
+        // Stop early
+        m_previewTimer->stop();
+        m_previewEngine->stop();
+        m_previewEngine->setSubdivisionPattern(m_savedPreviewPattern);
+        m_previewButton->setText("▶ Preview");
+        m_isPreviewing = false;
+        return;
+    }
+
+    if (m_previewEngine->isRunning()) {
+        m_previewButton->setToolTip("Stop the metronome first to use preview");
+        return;
+    }
+
+    if (m_pattern.pulses.isEmpty()) return;
+
+    // Save current pattern state
+    m_savedPreviewPattern = m_previewEngine->subdivisionPattern();
+
+    // Compute exactly how long one pass through the pattern takes.
+    // Must use m_compoundTime so beat fractions match what the engine uses.
+    double totalBeats = 0.0;
+    for (const auto& pulse : m_pattern.pulses)
+        totalBeats += noteValueBeatFraction(pulse.noteValue, m_compoundTime);
+    int bpm = m_previewEngine->currentTempo();
+    if (bpm <= 0) bpm = 120;
+    double msPerBeat = 60000.0 / bpm;
+    double barMs = totalBeats * msPerBeat;
+
+    // Find when the last pulse starts so we know we have at least heard it
+    double lastPulseStartBeats = 0.0;
+    for (int i = 0; i + 1 < m_pattern.pulses.size(); ++i)
+        lastPulseStartBeats += noteValueBeatFraction(m_pattern.pulses[i].noteValue, m_compoundTime);
+    double lastPulseStartMs = lastPulseStartBeats * msPerBeat;
+
+    // Stop at least 50ms after the last pulse fires, but at least 30ms before
+    // the bar loops (so the audio callback sees m_running=false before it can
+    // mix the second repetition). Clamp into a safe window within the bar.
+    double stopMs = qMax(lastPulseStartMs + 50.0, barMs - 30.0);
+    stopMs = qMin(stopMs, barMs - 5.0);   // never overshoot the bar
+    stopMs = qMax(stopMs, 10.0);          // minimum sanity
+    int durationMs = int(stopMs);
+
+    // Configure and start
+    m_previewEngine->setSubdivisionPattern(m_pattern);
+    m_previewEngine->start();
+    m_previewButton->setText("■ Stop");
+    m_isPreviewing = true;
+    m_previewTimer->start(durationMs);
+}
+
+void CustomSubdivisionDialog::onMovePulse(int fromIndex, int toGlobalX) {
+    // Convert global X to a target index by checking which pulse widget we're over
+    int targetIndex = fromIndex;
+    for (int i = 0; i < m_pulseWidgets.size(); ++i) {
+        QPoint localPos = m_pulseWidgets[i]->mapFromGlobal(QPoint(toGlobalX, 0));
+        if (localPos.x() >= 0 && localPos.x() < m_pulseWidgets[i]->width()) {
+            targetIndex = i;
+            break;
+        }
+        // Also snap to position before first widget if dragging left of it
+        if (i == 0) {
+            QPoint localPos0 = m_pulseWidgets[0]->mapFromGlobal(QPoint(toGlobalX, 0));
+            if (localPos0.x() < 0) { targetIndex = 0; break; }
+        }
+    }
+
+    if (targetIndex == fromIndex || targetIndex < 0 || targetIndex >= m_pattern.pulses.size())
+        return;
+
+    pushUndo();
+    SubdivisionPulse moving = m_pattern.pulses.takeAt(fromIndex);
+    m_pattern.pulses.insert(targetIndex, moving);
+    m_selectedPulseIndex = targetIndex;
+    rebuildPattern();
+    if (targetIndex < m_pulseWidgets.size())
+        m_pulseWidgets[targetIndex]->setSelected(true);
+    updateTotalDuration();
 }

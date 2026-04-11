@@ -14,8 +14,12 @@
 #include <QPaintEvent>
 #include <QGridLayout>
 #include <QLineEdit>
+#include <QComboBox>
+#include <QTimer>
 #include "subdivisionpattern.h"
 #include "noteassembler.h"
+
+class MetronomeEngine;
 
 class NoteTileWidget;  // defined in .cpp
 
@@ -30,17 +34,25 @@ public:
     void setSelected(bool selected);
     bool isSelected() const { return m_selected; }
 
+    // Drag-to-reorder: owning dialog sets this index after each rebuild
+    int widgetIndex = -1;
+
 signals:
     void clicked();
     void changed();
+    void dragRequested(int fromIndex, int toGlobalX);
 
 protected:
     void paintEvent(QPaintEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 
 private:
     SubdivisionPulse m_pulse;
     bool m_selected = false;
+    QPoint m_dragStartPos;
+    bool m_dragging = false;
 
     void updateToolTip();
 };
@@ -48,7 +60,8 @@ private:
 class CustomSubdivisionDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit CustomSubdivisionDialog(QWidget* parent = nullptr);
+    explicit CustomSubdivisionDialog(QWidget* parent = nullptr, MetronomeEngine* engine = nullptr,
+                                     int numerator = 4, int denominator = 4, bool compoundTime = false);
 
     void setPattern(const SubdivisionPattern& pattern);
     SubdivisionPattern chosenPattern() const { return m_pattern; }
@@ -64,6 +77,9 @@ private slots:
     void onClearAll();
     void onPresetSelected();
     void onOkClicked();
+    void onPreviewClicked();
+    void onUndo();
+    void onMovePulse(int fromIndex, int toGlobalX);
 
 private:
     void rebuildPattern();
@@ -71,6 +87,8 @@ private:
     void updatePreview();
     void selectPulse(int index);
     void updateOkButtonState();
+    void updateTotalDuration();
+    void pushUndo();
 
     NoteAssemblerConfig configForPattern(const SubdivisionPattern& pattern) const;
 
@@ -84,7 +102,7 @@ private:
 
     QVector<NoteTileWidget*> m_noteTiles;
     int m_selectedTileIndex = 4; // Default to Quarter (index in 7-item NOTE_VALUE_COMBO)
-    // Tuplet button row: index = tupletN (0=×, 1 unused, 2–9)
+    // Tuplet button row: index = tupletN (0=None, 1 unused, 2–9)
     QVector<QPushButton*> m_tupletButtons; // size 10
     int m_selectedTuplet = 0;
     QPushButton* m_noteButton;
@@ -100,10 +118,27 @@ private:
     QLabel* m_previewLabel;
     QPushButton* m_okButton;
     QLineEdit* m_nameEdit;
+    QLabel* m_totalDurationLabel;
+
+    // Time signature context
+    int  m_numerator    = 4;
+    int  m_denominator = 4;
+    bool m_compoundTime = false;
+
+    // Preview / play
+    MetronomeEngine* m_previewEngine = nullptr;
+    QPushButton* m_previewButton = nullptr;
+    QTimer* m_previewTimer = nullptr;
+    bool m_isPreviewing = false;
+    SubdivisionPattern m_savedPreviewPattern;
+
+    // Undo stack (each entry is a pulse-list snapshot)
+    QVector<QVector<SubdivisionPulse>> m_undoStack;
 
     QVector<SubdivisionPulseWidget*> m_pulseWidgets;
 
     // Common presets
     void setupPresets();
     QHBoxLayout* m_presetLayout;
+    QComboBox* m_presetCombo;
 };

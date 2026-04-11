@@ -217,7 +217,7 @@ void SubdivisionSelectorDialog::addCustomPattern(const SubdivisionPattern& patte
 void SubdivisionSelectorDialog::editCustomPattern(int index) {
     if (index < 0 || index >= m_savedCustomPatterns.size()) return;
     
-    CustomSubdivisionDialog dlg(this);
+    CustomSubdivisionDialog dlg(this, m_metronomeEngine, m_numerator, m_denominator, m_compoundTime);
     dlg.setPattern(m_savedCustomPatterns[index]);
     
     if (dlg.exec() == QDialog::Accepted) {
@@ -247,8 +247,8 @@ NoteAssemblerConfig SubdivisionSelectorDialog::configForPattern(const Subdivisio
     return buildNoteAssemblerConfig(pattern);
 }
 
-SubdivisionSelectorDialog::SubdivisionSelectorDialog(QWidget* parent, bool compoundTime, int numerator, int denominator)
-    : QDialog(parent), m_compoundTime(compoundTime), m_numerator(numerator), m_denominator(denominator)
+SubdivisionSelectorDialog::SubdivisionSelectorDialog(QWidget* parent, bool compoundTime, int numerator, int denominator, MetronomeEngine* engine)
+    : QDialog(parent), m_compoundTime(compoundTime), m_numerator(numerator), m_denominator(denominator), m_metronomeEngine(engine)
 {
     setWindowTitle("Choose Subdivision");
     setModal(true);
@@ -550,7 +550,7 @@ void SubdivisionSelectorDialog::onAcceptClicked() {
 }
 
 void SubdivisionSelectorDialog::onPlusBoxClicked() {
-    CustomSubdivisionDialog dlg(this);
+    CustomSubdivisionDialog dlg(this, m_metronomeEngine, m_numerator, m_denominator, m_compoundTime);
     if (dlg.exec() == QDialog::Accepted) {
         SubdivisionPattern pattern = dlg.chosenPattern();
         pattern.name = dlg.chosenName();

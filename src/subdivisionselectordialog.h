@@ -14,10 +14,12 @@
 #include "customsubdivisiondialog.h"
 #include "noteassembler.h"
 
+class MetronomeEngine;
+
 class SubdivisionSelectorDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit SubdivisionSelectorDialog(QWidget* parent = nullptr, bool compoundTime = false, int numerator = 4, int denominator = 4);
+    explicit SubdivisionSelectorDialog(QWidget* parent = nullptr, bool compoundTime = false, int numerator = 4, int denominator = 4, MetronomeEngine* engine = nullptr);
 
     SubdivisionPattern chosenPattern() const { return m_chosenPattern; }
 
@@ -64,4 +66,6 @@ private:
     void editCustomPattern(int index);
     void deleteCustomPattern(int index);
     QString getCustomPatternsFilePath() const;
+
+    MetronomeEngine* m_metronomeEngine = nullptr;
 };
