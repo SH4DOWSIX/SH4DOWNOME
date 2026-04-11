@@ -62,7 +62,7 @@ SH4DOWNOME is fully portable — no installer required.
 2. Extract the contents to any folder.
 3. Run `SH4DOWNOME.exe`.
 
-> **Migrating from a previous version:** copy your `presets.json` file from the old folder into the new folder to keep all your saved pieces and sections.
+> **Migrating from a previous version:** copy your `presets.json` file from the old data folder into the new data folder to keep all your saved pieces and sections.
 
 ---
 
