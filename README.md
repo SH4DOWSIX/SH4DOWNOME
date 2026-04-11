@@ -2,7 +2,9 @@
 
 A feature-packed, portable metronome application for Windows, built with Qt 6.
 
-![Main Window](images/16.png) &nbsp; ![OBS Beat Window](images/15.png)
+| ![Main Window](images/16.png) | ![OBS Beat Window](images/15.png) |
+|:---:|:---:|
+
 
 ---
 
@@ -113,6 +115,8 @@ The resulting binary is statically linked — no Qt or runtime DLLs are needed o
 | Build system | CMake |
 | Persistence | JSON (`presets.json`) / `QSettings` |
 | Notation rendering | Custom SVG assembler |
+
+---
 
 ## License
 
