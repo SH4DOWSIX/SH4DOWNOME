@@ -2481,14 +2481,6 @@ void MainWindow::onSettingsClicked()
         // --- POPOUT / OBS WIDGET HANDLING (unchanged behaviour) ---
         QVBoxLayout* mainLayout = qobject_cast<QVBoxLayout*>(ui->centralwidget->layout());
         if (ui->obsBeatWidget && mainLayout) {
-            static bool obsSizeSet = false;
-            if (!obsSizeSet) {
-                ui->obsBeatWidget->setMinimumHeight(306);
-                ui->obsBeatWidget->setMaximumHeight(306);
-                ui->obsBeatWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-                obsSizeSet = true;
-            }
-
             if (!newObsHidden) {
                 // Ensure we have a hidden host available (used when user later closes popout)
                 if (!m_obsHiddenHost) {
