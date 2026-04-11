@@ -15,8 +15,7 @@
 #include <QLabel>
 #include <QCheckBox>
 #include <QSettings>
-#include <QStandardPaths>
-#include <QDir>
+#include <QCoreApplication>
 #include <QMessageBox>
 #include <QInputDialog>
 #include <QContextMenuEvent>
@@ -131,9 +130,7 @@ QVector<SubdivisionPattern> getCustomPatterns(bool /*compound*/) { return {}; }
 } // namespace
 
 QString SubdivisionSelectorDialog::getCustomPatternsFilePath() const {
-    QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir().mkpath(appDataPath);
-    return appDataPath + "/custom_subdivisions.dat";
+    return QCoreApplication::applicationDirPath() + "/data/custom_subdivisions.dat";
 }
 
 void SubdivisionSelectorDialog::loadCustomPatterns() {

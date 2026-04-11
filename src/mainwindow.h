@@ -4,6 +4,8 @@
 #include <QSoundEffect>
 #include <QCheckBox>
 #include <QElapsedTimer>
+#include <QDir>
+#include <QCoreApplication>
 #include "metronomeengine.h"
 #include "presetmanager.h"
 #include <QTimer>
@@ -219,7 +221,7 @@ private:
     int m_countInBarTotal = 1;
 
     PresetManager presetManager;
-    const QString presetFile = "presets.json";
+    const QString presetFile = QCoreApplication::applicationDirPath() + "/data/presets.json";
     MetronomePreset currentPreset;
     int currentSectionIdx = -1;
 

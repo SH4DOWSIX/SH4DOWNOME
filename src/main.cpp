@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
     MainWindow w;
 
     // --- Always on top flag set BEFORE show ---
-    QSettings settings("YourCompany", "MetronomeApp");
+    QSettings settings(QCoreApplication::applicationDirPath() + "/data/settings.ini", QSettings::IniFormat);
     bool alwaysOnTop = settings.value("alwaysOnTop", false).toBool();
     if (alwaysOnTop) {
         w.setWindowFlag(Qt::WindowStaysOnTopHint, true);

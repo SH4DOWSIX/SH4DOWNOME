@@ -12,6 +12,7 @@
 #include <QSignalBlocker>
 #include <numeric>
 #include <QSettings>
+#include <QCoreApplication>
 #include "obsbeatwidget.h"
 #include "sectiontablewidget.h"
 #include "settingsdialog.h"
@@ -153,11 +154,13 @@ metronome.setVolume(1.0f);
     ui->tableSections->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     ui->tableSections->verticalHeader()->setDefaultAlignment(Qt::AlignCenter);
 
-    QSettings settings("YourCompany", "MetronomeApp");
+    QDir().mkpath(QCoreApplication::applicationDirPath() + "/data");
+
+    QSettings settings(QCoreApplication::applicationDirPath() + "/data/settings.ini", QSettings::IniFormat);
     QString savedColor = settings.value("accentColor", "#960000").toString();
     m_accentColor = QColor(savedColor);
     m_soundSet = settings.value("soundSet", "Default").toString();
-    m_obsHidden = settings.value("obsHidden", false).toBool();
+    m_obsHidden = settings.value("obsHidden", true).toBool();
     m_alwaysOnTop = settings.value("alwaysOnTop", false).toBool();
 
     if (m_alwaysOnTop) {
@@ -460,11 +463,11 @@ connect(m_timeSigBtn, &QPushButton::clicked, this, [this]() {
                 m_obsWindow->activateWindow();
             }
 
-            // Configure widget sizing while in its window (keeps consistent look if you reparent back)
+            // Widget is inside the popout window — let it fill freely
             ui->obsBeatWidget->setVisible(true);
-            ui->obsBeatWidget->setMinimumHeight(obsHeight);
-            ui->obsBeatWidget->setMaximumHeight(obsHeight);
-            ui->obsBeatWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+            ui->obsBeatWidget->setMinimumHeight(0);
+            ui->obsBeatWidget->setMaximumHeight(QWIDGETSIZE_MAX);
+            ui->obsBeatWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
             // Mark that we are not showing it inline (it's in the popout)
             m_obsInLayout = false;
@@ -513,7 +516,7 @@ connect(m_timeSigBtn, &QPushButton::clicked, this, [this]() {
     connect(ui->spinVolume, QOverload<int>::of(&QSpinBox::valueChanged), setVolume);
 
     connect(ui->sliderVolume, &QSlider::valueChanged, this, [](int value){
-        QSettings settings("YourCompany", "MetronomeApp");
+        QSettings settings(QCoreApplication::applicationDirPath() + "/data/settings.ini", QSettings::IniFormat);
         settings.setValue("volume", value);
     });
 
@@ -2442,7 +2445,7 @@ void MainWindow::onSettingsClicked()
 
         updateButtonColors();
 
-        QSettings settings("YourCompany", "MetronomeApp");
+        QSettings settings(QCoreApplication::applicationDirPath() + "/data/settings.ini", QSettings::IniFormat);
         settings.setValue("accentColor", m_accentColor.name());
         settings.setValue("soundSet", m_soundSet);
         settings.setValue("obsHidden", newObsHidden);
@@ -2796,7 +2799,7 @@ void MainWindow::openObsPopoutWindow()
     ui->obsBeatWidget->setVisible(true);
     m_obsInLayout = false;
     m_obsHidden = false;
-    QSettings settings("YourCompany", "MetronomeApp");
+    QSettings settings(QCoreApplication::applicationDirPath() + "/data/settings.ini", QSettings::IniFormat);
     settings.setValue("obsHidden", false);
     settings.sync();
 }
@@ -2818,7 +2821,7 @@ void MainWindow::closeObsPopoutWindow()
         }
         m_obsInLayout = false;
         m_obsHidden = true;
-        QSettings settings("YourCompany", "MetronomeApp");
+        QSettings settings(QCoreApplication::applicationDirPath() + "/settings.ini", QSettings::IniFormat);
         settings.setValue("obsHidden", true);
         settings.sync();
         return;
@@ -2845,7 +2848,7 @@ void MainWindow::closeObsPopoutWindow()
 
     m_obsInLayout = false;
     m_obsHidden = true;
-    QSettings settings("YourCompany", "MetronomeApp");
+    QSettings settings(QCoreApplication::applicationDirPath() + "/settings.ini", QSettings::IniFormat);
     settings.setValue("obsHidden", true);
     settings.sync();
 }

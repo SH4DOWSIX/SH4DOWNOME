@@ -96,11 +96,16 @@ void OBSBeatWidget::paintEvent(QPaintEvent *event) {
     int tempoW = tempoFm.horizontalAdvance(tempoStr);
     int tempoH = tempoFm.height();
 
-    // 2. Subdivision image
+    // 2. Subdivision image (scaled to fit within the circle, constrained by both width and height)
+    QPixmap drawSubdivPix;
     int subdivImgW = 0, subdivImgH = 0;
     if (!m_polyrhythmMode && !m_subdivisionPixmap.isNull()) {
-        subdivImgW = m_subdivisionPixmap.width();
-        subdivImgH = m_subdivisionPixmap.height();
+        int targetH = int(circleSize * 0.28);
+        int targetW = int(circleSize * 0.78);
+        drawSubdivPix = m_subdivisionPixmap.scaled(
+            QSize(targetW, targetH), Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        subdivImgW = drawSubdivPix.width();
+        subdivImgH = drawSubdivPix.height();
     }
 
     // 3. Polyrhythm text (if in polyrhythm mode)
@@ -140,10 +145,10 @@ void OBSBeatWidget::paintEvent(QPaintEvent *event) {
         int imgX = center.x() - subdivImgW / 2;
         if (m_playing) {
             p.setCompositionMode(QPainter::CompositionMode_SourceOver);
-            p.drawPixmap(imgX, y, m_subdivisionPixmap);
+            p.drawPixmap(imgX, y, drawSubdivPix);
         } else {
             p.setOpacity(0.0);
-            p.drawPixmap(imgX, y, m_subdivisionPixmap);
+            p.drawPixmap(imgX, y, drawSubdivPix);
             p.setOpacity(1.0);
         }
         y += subdivImgH;
