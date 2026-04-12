@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.2"
+   width="1.5675104mm"
+   height="6.1646037mm"
+   viewBox="0 0 0.89199998 3.5079999"
+   id="svg3"
+   sodipodi:docname="flag_sixteenth_up.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:document-units="mm"
+     inkscape:zoom="1.0467522"
+     inkscape:cx="359.2063"
+     inkscape:cy="535.46577"
+     inkscape:window-width="933"
+     inkscape:window-height="1211"
+     inkscape:window-x="1386"
+     inkscape:window-y="79"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg3" />
+  <style
+     type="text/css"
+     id="style1"><![CDATA[
+tspan { white-space: pre; }
+]]></style>
+  <g
+     transform="translate(0.064)"
+     id="g1">
+    <path
+       transform="scale(0.004,-0.004)"
+       d="m 0,0 c 0,-177 201,-293 201,-470 0,-33 -9,-65 -23,-95 18,-37 29,-75 29,-117 0,-63 -15,-125 -41,-183 -5,-8 -13,-12 -20,-12 -13,0 -26,11 -23,27 26,52 42,110 42,168 0,97 -94,190 -165,257 v -75 H -16 V 0 Z m 151,-517 c 5,15 8,31 8,47 0,96 -91,190 -159,257 0,-118 90,-206 151,-304 z"
+       fill="currentColor"
+       id="path1" />
+  </g>
+  <g
+     transform="translate(28.9435,161.2099)"
+     id="g2"
+     style="display:none">
+    <a
+       xlink:href="https://lilypond.org/"
+       id="a1">
+      <rect
+         x="0"
+         y="-0.47479999"
+         width="50.361401"
+         height="2.0023999"
+         fill="none"
+         stroke="none"
+         stroke-width="0"
+         id="rect1" />
+    </a>
+  </g>
+  <g
+     transform="translate(28.9435,161.2099)"
+     id="g3"
+     style="display:none">
+    <text
+       font-family="serif"
+       font-size="2.2001px"
+       text-anchor="start"
+       fill="currentColor"
+       id="text2"><tspan
+         id="tspan2">Music engraving by LilyPond 2.24.4—www.lilypond.org</tspan></text>
+  </g>
+</svg>
