@@ -3,6 +3,10 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QSet>
+#include <QUrl>
+
+PresetManager::PresetManager(QObject* parent) : QObject(parent) {}
 
 // --- Helpers for serializing SubdivisionPattern ---
 
@@ -46,9 +50,134 @@ static SubdivisionPattern fromJson(const QJsonObject& obj) {
     return pattern;
 }
 
-PresetManager::PresetManager(QObject* parent)
-    : QObject(parent)
-{}
+// Resolve a file:// or content:// URL string to a usable QFile path
+static QString resolveFilePath(const QString& uriOrPath) {
+    QUrl url(uriOrPath);
+    if (url.scheme() == "file") return url.toLocalFile();
+    return uriOrPath; // content:// or plain path — pass through
+}
+
+bool PresetManager::exportToFile(const QStringList& names, const QString& filePath) const {
+    QJsonObject presetsObj;
+    for (const QString& name : names) {
+        if (!presets.contains(name)) continue;
+        const MetronomePreset& p = presets[name];
+        QJsonObject obj;
+        QJsonArray sectionsArr;
+        for (const MetronomeSection& s : p.sections) {
+            QJsonObject secObj;
+            secObj["tempo"]       = s.tempo;
+            secObj["numerator"]   = s.numerator;
+            secObj["denominator"] = s.denominator;
+            secObj["subdivisionPattern"] = toJson(s.subdivisionPattern);
+            secObj["label"] = s.label;
+            QJsonArray arr;
+            for (bool a : s.accents) arr.append(a);
+            secObj["accents"] = arr;
+            secObj["hasPolyrhythm"] = s.hasPolyrhythm;
+            if (s.hasPolyrhythm) {
+                QJsonObject poly;
+                poly["primaryBeats"]   = s.polyrhythm.primaryBeats;
+                poly["secondaryBeats"] = s.polyrhythm.secondaryBeats;
+                poly["perBeat"]        = s.polyrhythmPerBeat;
+                secObj["polyrhythm"] = poly;
+            }
+            sectionsArr.append(secObj);
+        }
+        obj["sections"] = sectionsArr;
+        presetsObj[name] = obj;
+    }
+    QJsonArray custArr;
+    QMap<QString, QJsonObject> customMap;
+    for (const QString& name : names) {
+        if (!presets.contains(name)) continue;
+        for (const MetronomeSection& s : presets[name].sections) {
+            if (s.subdivisionPattern.category == SubdivisionCategory::Custom
+                && !customMap.contains(s.subdivisionPattern.name))
+                customMap[s.subdivisionPattern.name] = toJson(s.subdivisionPattern);
+        }
+    }
+    for (const auto& v : customMap) custArr.append(v);
+    // Also include standalone custom patterns not referenced by any section
+    for (const auto& cp : m_customPatterns)
+        if (!customMap.contains(cp.name))
+            custArr.append(toJson(cp));
+
+    QJsonObject root;
+    root["presets"]        = presetsObj;
+    root["customPatterns"] = custArr;
+
+    QFile file(resolveFilePath(filePath));
+    if (!file.open(QIODevice::WriteOnly)) return false;
+    file.write(QJsonDocument(root).toJson());
+    file.close();
+    return true;
+}
+
+QStringList PresetManager::presetsInFile(const QString& filePath) {
+    QFile file(resolveFilePath(filePath));
+    if (!file.open(QIODevice::ReadOnly)) return {};
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    file.close();
+    QJsonObject root = doc.object();
+    QJsonObject presetsObj = root.contains("presets") ? root["presets"].toObject() : root;
+    QStringList names;
+    for (const QString& key : presetsObj.keys()) {
+        const QJsonValue& v = presetsObj[key];
+        if (!key.trimmed().isEmpty() && v.isObject() && v.toObject().contains("sections"))
+            names.append(key);
+    }
+    return names;
+}
+
+static void loadPresetsFromObject(const QJsonObject& presetsObj, QMap<QString, MetronomePreset>& out);
+
+int PresetManager::customPatternsInFile(const QString& filePath) {
+    QFile file(resolveFilePath(filePath));
+    if (!file.open(QIODevice::ReadOnly)) return 0;
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    file.close();
+    return doc.object()["customPatterns"].toArray().size();
+}
+
+bool PresetManager::importFromFile(const QStringList& names, const QString& filePath) {
+    QFile file(resolveFilePath(filePath));
+    if (!file.open(QIODevice::ReadOnly)) return false;
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    file.close();
+
+    QJsonObject root = doc.object();
+    QJsonObject presetsObj = root.contains("presets") ? root["presets"].toObject() : root;
+
+    // Parse presets from file into a temporary map
+    QMap<QString, MetronomePreset> filePresets;
+    loadPresetsFromObject(presetsObj, filePresets);
+
+    // Import selected presets
+    bool anyImported = false;
+    for (const QString& name : names) {
+        if (filePresets.contains(name)) {
+            presets[name] = filePresets[name];
+            anyImported = true;
+        }
+    }
+
+    // Merge custom patterns we don't already have
+    QSet<QString> existing;
+    for (const auto& cp : m_customPatterns) existing.insert(cp.name);
+    for (const QJsonValue& v : root["customPatterns"].toArray()) {
+        SubdivisionPattern p = fromJson(v.toObject());
+        p.category = SubdivisionCategory::Custom;
+        if (!p.pulses.isEmpty() && !existing.contains(p.name)) {
+            m_customPatterns.append(p);
+            existing.insert(p.name);
+            anyImported = true;
+        }
+    }
+
+    return anyImported;
+}
+
 
 void PresetManager::savePreset(const MetronomePreset& preset) {
     if (preset.songName.trimmed().isEmpty()) return;
@@ -69,19 +198,11 @@ void PresetManager::removePreset(const QString& songName) {
     presets.remove(songName);
 }
 
-void PresetManager::loadFromDisk(const QString& filename) {
-    QFile file(filename);
-    if (!file.open(QIODevice::ReadOnly)) return;
-    QByteArray data = file.readAll();
-    file.close();
-
-    QJsonDocument doc = QJsonDocument::fromJson(data);
-    QJsonObject root = doc.object();
-    presets.clear();
-
-    for (const QString& key : root.keys()) {
+static void loadPresetsFromObject(const QJsonObject& presetsObj, QMap<QString, MetronomePreset>& out)
+{
+    for (const QString& key : presetsObj.keys()) {
         if (key.trimmed().isEmpty()) continue;
-        QJsonObject obj = root.value(key).toObject();
+        QJsonObject obj = presetsObj.value(key).toObject();
         MetronomePreset p;
         p.songName = key;
         QJsonArray sectionsArr = obj.value("sections").toArray();
@@ -91,11 +212,9 @@ void PresetManager::loadFromDisk(const QString& filename) {
             s.tempo = secObj.value("tempo").toInt();
             s.numerator = secObj.value("numerator").toInt();
             s.denominator = secObj.value("denominator").toInt();
-            // --- Deserialize subdivisionPattern ---
             if (secObj.contains("subdivisionPattern") && secObj.value("subdivisionPattern").isObject()) {
                 s.subdivisionPattern = fromJson(secObj.value("subdivisionPattern").toObject());
             } else {
-                int legacySubdiv = secObj.value("subdivision").toInt();
                 s.subdivisionPattern = SubdivisionPattern{SubdivisionCategory::Standard, "Quarter Note", { {NoteValue::Quarter, false} }};
             }
             s.label = secObj.value("label").toString();
@@ -111,15 +230,43 @@ void PresetManager::loadFromDisk(const QString& filename) {
                 QJsonObject polyObj = secObj.value("polyrhythm").toObject();
                 s.polyrhythm.primaryBeats = polyObj.value("primaryBeats").toInt(3);
                 s.polyrhythm.secondaryBeats = polyObj.value("secondaryBeats").toInt(2);
+                s.polyrhythmPerBeat = polyObj.contains("perBeat")
+                    ? polyObj.value("perBeat").toBool(true)
+                    : false;
             }
             p.sections.push_back(s);
         }
-        presets[p.songName] = p;
+        out[p.songName] = p;
+    }
+}
+
+void PresetManager::loadFromDisk(const QString& filename) {
+    QFile file(filename);
+    if (!file.open(QIODevice::ReadOnly)) return;
+    QByteArray data = file.readAll();
+    file.close();
+
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    QJsonObject root = doc.object();
+    presets.clear();
+    m_customPatterns.clear();
+
+    if (root.contains("presets")) {
+        // New unified format
+        loadPresetsFromObject(root.value("presets").toObject(), presets);
+        for (const QJsonValue& v : root.value("customPatterns").toArray()) {
+            SubdivisionPattern p = fromJson(v.toObject());
+            p.category = SubdivisionCategory::Custom;
+            if (!p.pulses.isEmpty()) m_customPatterns.append(p);
+        }
+    } else {
+        // Legacy flat format (presets only, no customPatterns)
+        loadPresetsFromObject(root, presets);
     }
 }
 
 void PresetManager::saveToDisk(const QString& filename) const {
-    QJsonObject root;
+    QJsonObject presetsObj;
     for (const auto& songName : presets.keys()) {
         const MetronomePreset& p = presets[songName];
         QJsonObject obj;
@@ -139,13 +286,23 @@ void PresetManager::saveToDisk(const QString& filename) const {
                 QJsonObject polyObj;
                 polyObj["primaryBeats"] = s.polyrhythm.primaryBeats;
                 polyObj["secondaryBeats"] = s.polyrhythm.secondaryBeats;
+                polyObj["perBeat"] = s.polyrhythmPerBeat;
                 secObj["polyrhythm"] = polyObj;
             }
             sectionsArr.append(secObj);
         }
         obj["sections"] = sectionsArr;
-        root[songName] = obj;
+        presetsObj[songName] = obj;
     }
+
+    QJsonArray custArr;
+    for (const auto& cp : m_customPatterns)
+        custArr.append(toJson(cp));
+
+    QJsonObject root;
+    root["presets"] = presetsObj;
+    root["customPatterns"] = custArr;
+
     QJsonDocument doc(root);
     QFile file(filename);
     if (!file.open(QIODevice::WriteOnly)) return;

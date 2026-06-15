@@ -1,4 +1,4 @@
-#include "audioengine.h"
+﻿#include "audioengine.h"
 #include <QFile>
 #include <QtEndian>
 #include <cstring>
@@ -313,7 +313,10 @@ void AudioEngine::setPulseCallback(PulseCallback cb) {
 }
 
 void AudioEngine::emitUiPulse(const AudioPulseEvent& ev) {
-    emit pulseUiEvent(ev);
+    // Stamp current run ID so the receiver can discard signals from old sessions.
+    AudioPulseEvent tagged = ev;
+    tagged.runId = m_runId.load();
+    emit pulseUiEvent(tagged);
     if (m_pulseCallback) {
         m_pulseCallback(ev);
     }
@@ -346,7 +349,355 @@ void AudioEngine::miniAudioDataCallback(ma_device* pDevice, void* pOutput, const
     engine->doAudioCallback(reinterpret_cast<float*>(pOutput), frameCount);
 }
 
-// ... rest of the doAudioCallback and other methods remain the same ...
+// =============================================================================
+// FREE FUNCTION: buildBarSchedule
+// =============================================================================
+// Compute the pulse schedule for one bar given engine params.
+// isCountIn = true  â†’ produce count-in beats (idx < 0) at the bar tempo
+// isCountIn = false â†’ produce normal subdivision / polyrhythm pulses
+// All samplePosInBar values are relative (0 = bar start).
+// This is the implementation for the declaration in audioengine.h.
+
+static int bbs_lcm(int a, int b) {
+    if (a == 0 || b == 0) return 0;
+    int x = a, y = b;
+    while (y != 0) { int t = y; y = x % y; x = t; }
+    return (a / x) * b;
+}
+
+BarSchedule buildBarSchedule(const EngineParams& params, bool isCountIn, int sampleRate) {
+    BarSchedule result;
+
+    bool compound      = (params.denominator == 8) &&
+                         (params.numerator % 3 == 0) &&
+                         (params.numerator > 3);
+    int  beatsPerBar   = compound ? (params.numerator / 3) : params.numerator;
+    double secPerBeat  = 60.0 / params.bpm;
+    int    smpPerBeat  = int(sampleRate * secPerBeat);
+    double barLenSec   = beatsPerBar * secPerBeat;
+    int    barLenSmp   = beatsPerBar * smpPerBeat;
+
+    // â”€â”€ COUNT-IN bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (isCountIn) {
+        int pulseCount = beatsPerBar;      // compound: dotted-quarter beats; simple: quarter beats
+        for (int i = 0; i < pulseCount; ++i) {
+            AudioPulseEvent ev;
+            ev.idx          = -1000 + i;
+            ev.accent       = (i == 0);
+            ev.polyAccent   = false;
+            ev.isBeat       = true;
+            ev.playPulse    = true;
+            ev.isRest       = false;
+            ev.gridColumn   = -1;
+            ev.samplePosInBar = i * smpPerBeat;
+            ev.startOfCycle = (i == 0);
+            result.pulses.push_back(ev);
+        }
+        result.barLengthSamples = int64_t(pulseCount) * smpPerBeat;
+        return result;
+    }
+
+    // â”€â”€ POLYRHYTHM bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (params.polyrhythmEnabled &&
+        params.polyMain > 0 && params.polySecondary > 0)
+    {
+        int mainBeats = params.polyMain;
+        int polyBeats = params.polySecondary;
+        int columns   = bbs_lcm(mainBeats, polyBeats);
+
+        struct PI { double time; int col; bool isMain, isPoly; };
+        std::vector<PI> pulses;
+        for (int i = 0; i < mainBeats; ++i) {
+            double t = i * barLenSec / mainBeats;
+            int col  = int(std::round(t / barLenSec * columns));
+            pulses.push_back({t, col, true, false});
+        }
+        for (int i = 0; i < polyBeats; ++i) {
+            double t = i * barLenSec / polyBeats;
+            int col  = int(std::round(t / barLenSec * columns));
+            pulses.push_back({t, col, false, true});
+        }
+        std::sort(pulses.begin(), pulses.end(),
+                  [](const PI& a, const PI& b){ return a.time < b.time; });
+
+        // Merge coincident pulses
+        std::vector<PI> merged;
+        const double eps = 1e-6;
+        for (const auto& pi : pulses) {
+            if (!merged.empty() && std::abs(pi.time - merged.back().time) < eps) {
+                merged.back().isMain |= pi.isMain;
+                merged.back().isPoly |= pi.isPoly;
+            } else {
+                merged.push_back(pi);
+            }
+        }
+
+        for (size_t idx = 0; idx < merged.size(); ++idx) {
+            const auto& pi = merged[idx];
+            AudioPulseEvent ev;
+            ev.idx          = int(idx);
+            ev.gridColumn   = pi.col;
+            ev.isBeat       = (pi.isMain && idx == 0);
+            ev.accent       = pi.isMain;
+            ev.polyAccent   = pi.isPoly;
+            ev.playPulse    = true;
+            ev.isRest       = false;
+            ev.samplePosInBar = int(std::round(pi.time * sampleRate));
+            ev.startOfCycle = (idx == 0);
+            result.pulses.push_back(ev);
+        }
+        result.barLengthSamples = barLenSmp;
+        return result;
+    }
+
+    // â”€â”€ SUBDIVISION bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    const SubdivisionPattern& pat = params.subdivision;
+    int subdivs = int(pat.pulses.size());
+    if (subdivs == 0) subdivs = 1;
+
+    double totalPatternDuration = 0.0;
+    for (const auto& p : pat.pulses)
+        totalPatternDuration += noteValueBeatFraction(p.noteValue, compound);
+
+    const double TOLERANCE = 1e-3;
+    bool isStandard = false;
+    if (pat.category == SubdivisionCategory::Custom) {
+        isStandard = false;
+    } else if (compound && pat.pulses.size() == 1 &&
+               std::abs(noteValueBeatFraction(pat.pulses[0].noteValue, compound) - 1.0) < TOLERANCE) {
+        isStandard = true;
+    } else {
+        isStandard = (std::abs(totalPatternDuration - 1.0) < TOLERANCE);
+    }
+
+    if (isStandard) {
+        // Standard: repeat pattern once per beat
+        for (int b = 0; b < beatsPerBar; ++b) {
+            double beatStartSec  = b * secPerBeat;
+            double pulseOffsetSec = 0.0;
+            for (int s = 0; s < subdivs; ++s) {
+                AudioPulseEvent ev;
+                ev.idx        = b * subdivs + s;
+                ev.gridColumn = -1;
+                ev.isBeat     = (s == 0);
+                if (pat.category == SubdivisionCategory::Custom)
+                    ev.accent = pat.pulses[s].accent;
+                else
+                    ev.accent = (s == 0 && int(params.accents.size()) > b && params.accents[b]);
+                ev.polyAccent   = false;
+                ev.isRest       = pat.pulses[s].isRest;
+                ev.playPulse    = !ev.isRest;
+                double dur      = secPerBeat * noteValueBeatFraction(pat.pulses[s].noteValue, compound);
+                ev.samplePosInBar = int(std::round((beatStartSec + pulseOffsetSec) * sampleRate));
+                ev.startOfCycle = (b == 0 && s == 0);
+                pulseOffsetSec += dur;
+                result.pulses.push_back(ev);
+            }
+        }
+        result.barLengthSamples = barLenSmp;
+    } else {
+        // Custom / variable-length pattern fills one "bar"
+        double actualDurSec = 0.0;
+        for (const auto& p : pat.pulses)
+            actualDurSec += noteValueBeatFraction(p.noteValue, compound) * secPerBeat;
+
+        std::vector<double> beatStartTimes;
+        for (int b = 0; b < beatsPerBar; ++b)
+            beatStartTimes.push_back(b * secPerBeat);
+
+        double pulseOffsetSec = 0.0;
+        for (int s = 0; s < int(pat.pulses.size()); ++s) {
+            const auto& p = pat.pulses[s];
+            AudioPulseEvent ev;
+            ev.idx        = s;
+            ev.gridColumn = -1;
+            ev.isBeat     = false;
+            double pulseStartSec = pulseOffsetSec;
+            for (int b = 0; b < beatsPerBar; ++b) {
+                if (std::abs(pulseStartSec - beatStartTimes[b]) < 1e-6) {
+                    ev.isBeat = true;
+                    break;
+                }
+            }
+            ev.accent       = p.accent;
+            ev.isBeat       = (s == 0) ? true : ev.isBeat;
+            ev.polyAccent   = false;
+            ev.isRest       = p.isRest;
+            ev.playPulse    = !ev.isRest;
+            double dur      = secPerBeat * noteValueBeatFraction(p.noteValue, compound);
+            ev.samplePosInBar = int(std::round(pulseOffsetSec * sampleRate));
+            ev.startOfCycle = (s == 0);
+            pulseOffsetSec += dur;
+            result.pulses.push_back(ev);
+        }
+        result.barLengthSamples = int64_t(std::round(actualDurSec * sampleRate));
+    }
+    return result;
+}
+
+// =============================================================================
+// NEW BAR-ADVANCE STATE MACHINE
+// =============================================================================
+
+// resetStateMachine â€” called under m_schedMutex from startWithParams().
+void AudioEngine::resetStateMachine(const EngineParams& p, bool withCountIn)
+{
+    m_engineParams         = p;
+    m_currentTempo         = p.bpm;
+    m_paramsChanged        = false;
+    m_scheduledPulses.clear();
+    activeSamples.clear();
+    m_barNumberForUi          = 0;
+    m_playingBarSamplesAccum  = 0;
+    m_pendingStepUpTempoForTag = 0;  // never carry a stale step-up into a new session
+
+    // Pre-roll: one buffer period of silence so the hardware audio session
+    // has time to open cleanly before the first beat fires.
+    m_globalSamplePos = -(int64_t)m_bufferFrames;
+    m_nextBarStart    = 0;  // first bar starts at sample 0
+
+    if (withCountIn) {
+        m_playState       = EnginePlayState::CountIn;
+        m_countInBarsLeft = 1;
+    } else {
+        m_playState       = EnginePlayState::Playing;
+        m_countInBarsLeft = 0;
+    }
+
+    // Pre-generate the first bar so events are ready before playback starts.
+    advanceNextBar();
+}
+
+// advanceNextBar â€” called under m_schedMutex.
+// Generates the NEXT bar's events and appends them to m_scheduledPulses.
+// Also applies the post-generation state transition (count-inâ†’playing,
+// speed-trainer step-up) that affects the bar AFTER the one just generated.
+void AudioEngine::advanceNextBar()
+{
+    if (m_playState == EnginePlayState::Idle) return;
+
+    bool isCountIn = (m_playState == EnginePlayState::CountIn);
+
+    // Build the bar schedule using current tempo.
+    EngineParams p = m_engineParams;
+    p.bpm = m_currentTempo;
+    BarSchedule bar = buildBarSchedule(p, isCountIn, m_sampleRate);
+    if (bar.barLengthSamples <= 0) return;
+
+    // Tag and append events with absolute sample positions.
+    bool firstPulse = true;
+    for (AudioPulseEvent ev : bar.pulses) {
+        ev.barNumber    = m_barNumberForUi;
+        ev.barsPerStep  = m_engineParams.barsPerStep;
+        ev.isFirstInBar = firstPulse;
+        // Tag the new tempo on the very first pulse of the first post-step-up bar.
+        // This fires on the main thread exactly when that audio plays — not 2 s early.
+        if (firstPulse && m_pendingStepUpTempoForTag > 0) {
+            ev.newTempo = m_pendingStepUpTempoForTag;
+            m_pendingStepUpTempoForTag = 0;
+        }
+        firstPulse      = false;
+        int64_t absPos  = m_nextBarStart + int64_t(ev.samplePosInBar);
+        m_scheduledPulses.push_back({absPos, ev});
+    }
+
+    m_nextBarStart += bar.barLengthSamples;
+    m_barNumberForUi++;
+
+    // â”€â”€ Post-generation state transition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (isCountIn) {
+        m_countInBarsLeft--;
+        if (m_countInBarsLeft <= 0) {
+            m_playState              = EnginePlayState::Playing;
+            m_playingBarSamplesAccum = 0;
+            m_barNumberForUi         = 0;  // bar counter restarts when main playing begins
+        }
+    } else {
+        // Playing bar just generated -- check speed trainer step-up.
+        bool cpd2    = (p.denominator == 8) && (p.numerator % 3 == 0) && (p.numerator > 3);
+        int  bpbFull = cpd2 ? (p.numerator / 3) : p.numerator;
+
+        bool isCustomBarPath = (!p.polyrhythmEnabled &&
+                                p.subdivision.category == SubdivisionCategory::Custom);
+
+        int64_t target;
+        if (isCustomBarPath) {
+            // For custom patterns: count playthroughs. One full cycle of the
+            // beat indicator (bpb playthroughs) = 1 bar for speed trainer.
+            // barsPerStep=1 means all 4 big circles complete once before step-up.
+            m_playingBarSamplesAccum++;
+            target = int64_t(m_engineParams.barsPerStep) * int64_t(bpbFull);
+        } else {
+            // Standard/polyrhythm: accumulate actual sample duration.
+            m_playingBarSamplesAccum += bar.barLengthSamples;
+            int64_t smpPerFullBar = int64_t(bpbFull) *
+                                    int64_t(double(m_sampleRate) * 60.0 / double(p.bpm));
+            target = int64_t(m_engineParams.barsPerStep) * smpPerFullBar;
+        }
+
+        if (m_engineParams.speedEnabled
+            && m_currentTempo < m_engineParams.maxTempo
+            && target > 0
+            && m_playingBarSamplesAccum >= target)
+        {
+            int newTempo = qMin(m_currentTempo + m_engineParams.tempoStep,
+                                m_engineParams.maxTempo);
+            m_currentTempo           = newTempo;
+            m_playingBarSamplesAccum = 0;
+            m_barNumberForUi         = 0;
+
+            // Tag the new tempo on the FIRST PULSE of the next bar so the main
+            // thread learns about the step-up exactly when that audio plays.
+            m_pendingStepUpTempoForTag = newTempo;
+
+            if (m_engineParams.countInEnabled) {
+                m_playState       = EnginePlayState::CountIn;
+                m_countInBarsLeft = 1;
+            }
+        }
+    }
+}
+
+// setEngineParams â€” safe to call from main thread while running.
+// Changes take effect at the next bar boundary.
+void AudioEngine::setEngineParams(const EngineParams& p)
+{
+    QMutexLocker lock(&m_schedMutex);
+    m_engineParams  = p;
+    m_paramsChanged = true;
+    // Sync m_currentTempo so tempo changes take effect at the next bar
+    // when the speed trainer is not actively stepping up.
+    if (!p.speedEnabled)
+        m_currentTempo = p.bpm;
+}
+
+// startWithParams â€” stops any current playback and restarts with new params.
+void AudioEngine::startWithParams(const EngineParams& p, bool withCountIn)
+{
+    // Stop the device while we reset state (outside m_schedMutex to avoid deadlock).
+    if (m_running.load()) {
+        m_running.store(false);
+        if (m_deviceInitialized)
+            ma_device_stop(&m_device);
+    }
+
+    {
+        QMutexLocker lock(&m_schedMutex);
+        resetStateMachine(p, withCountIn);
+    }
+
+    // Increment run ID so any queued pulseUiEvent signals from the old session
+    // carry a stale ID and will be discarded by MetronomeEngine::onAudioPulse.
+    m_runId.fetch_add(1);
+
+    if (!m_deviceInitialized) return;
+    m_running.store(true);
+    ma_device_start(&m_device);
+}
+
+// =============================================================================
+// AUDIO CALLBACK  (core mixing loop â€” runs on audio thread, new state machine)
+// =============================================================================
 int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
     for (unsigned int i = 0; i < nBufferFrames; ++i)
         output[i] = 0.0f;
@@ -356,361 +707,84 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
 
     QMutexLocker lock(&m_schedMutex);
 
-    // RUNTIME DEVICE SAMPLE RATE CHANGE HANDLING:
-    // If the underlying miniaudio device's sampleRate has changed after initialization,
-    // reload buffers to device rate (preferred) or resample as fallback.
+    // â”€â”€ Runtime device sample-rate change â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (m_deviceInitialized && m_device.sampleRate != m_sampleRate) {
         int oldRate = m_sampleRate;
         int newRate = m_device.sampleRate;
         if (oldRate > 0 && newRate > 0) {
-            // Protect sample map while we reload
-            QMutexLocker sampleLock(&m_sampleMutex);
-
-            // Clear active samples to avoid pointer/position inconsistencies while we transform buffers
-            activeSamples.clear();
-
             double ratio = double(newRate) / double(oldRate);
-
-            // Reload or resample loaded sample buffers
-            for (auto it = m_samples.begin(); it != m_samples.end(); ++it) {
-                PCMBuffer &buf = it.value();
-                if (buf.valid && buf.sampleRate != newRate) {
-                    // Try to reload from original resource (better quality than in-place resample)
-                    if (!buf.resourcePath.isEmpty()) {
-                        bool reloadOk = buf.reloadForDevice(newRate);
-                        if (!reloadOk) {
-                            // Fallback to in-place resample
+            {
+                QMutexLocker sampleLock(&m_sampleMutex);
+                activeSamples.clear();
+                for (auto it = m_samples.begin(); it != m_samples.end(); ++it) {
+                    PCMBuffer &buf = it.value();
+                    if (buf.valid && buf.sampleRate != newRate) {
+                        if (!buf.resourcePath.isEmpty())
+                            buf.reloadForDevice(newRate);
+                        else
                             buf.resampleTo(newRate);
-                        }
-                    } else {
-                        buf.resampleTo(newRate);
                     }
                 }
             }
-
-            // Scale schedule sample positions so they still point to the same musical times
-            for (auto &ev : m_pulseSchedule) {
-                ev.samplePosInBar = int(std::round(ev.samplePosInBar * ratio));
-            }
-            for (auto &ev : m_pendingPulseSchedule) {
-                ev.samplePosInBar = int(std::round(ev.samplePosInBar * ratio));
-            }
-
-            // Adjust schedule length/sample rate counters
-            m_scheduleLengthSamples = int(std::round(m_scheduleLengthSamples * ratio));
-            m_scheduleSampleRate = newRate;
-            m_pendingSampleRate = int(std::round(m_pendingSampleRate * ratio));
-            m_globalSamplePos = int(std::round(m_globalSamplePos * ratio));
-
-            // Adopt new sample rate
+            // Rescale state-machine positions
+            for (auto& sp : m_scheduledPulses)
+                sp.samplePos = int64_t(std::round(sp.samplePos * ratio));
+            m_nextBarStart    = int64_t(std::round(m_nextBarStart * ratio));
+            m_globalSamplePos = int64_t(std::round(m_globalSamplePos * ratio));
             m_sampleRate = newRate;
         } else {
-            // If we can't compute ratio safely, just adopt new rate and clear scheduling to be safe
             QMutexLocker sampleLock(&m_sampleMutex);
             activeSamples.clear();
-            m_pulseSchedule.clear();
-            m_pendingPulseSchedule.clear();
-            m_scheduleLengthSamples = 0;
-            m_scheduleSampleRate = newRate;
-            m_pendingSampleRate = newRate;
+            m_scheduledPulses.clear();
             m_globalSamplePos = 0;
             m_sampleRate = newRate;
         }
     }
 
-    int64_t bufferStartSample = m_globalSamplePos;
-    int64_t bufferEndSample   = bufferStartSample + int64_t(nBufferFrames);
+    int64_t bufferStart = m_globalSamplePos;
+    int64_t bufferEnd   = bufferStart + int64_t(nBufferFrames);
 
-    // --- SCHEDULE SWAP LOGIC ---
-    if (m_flushedRecently && m_hasPendingSchedule) {
-        m_pulseSchedule = m_pendingPulseSchedule;
-        m_pulseIdx = 0;
-        m_scheduleLengthSamples = int(m_pendingBarLengthSeconds * m_pendingSampleRate);
-        m_scheduleSampleRate = m_pendingSampleRate;
-        m_barLengthSeconds = m_pendingBarLengthSeconds;
-        m_hasPendingSchedule = false;
-        m_flushedRecently = false;
-        activeSamples.clear();
-
-        int schedulePulseCount = static_cast<int>(m_pulseSchedule.size());
-        int64_t barStart = m_globalSamplePos / int64_t(m_scheduleLengthSamples);
-        int64_t barSampleOffset = barStart * int64_t(m_scheduleLengthSamples);
-
-        // Set swap position for deduplication at boundary
-        m_pendingScheduleSwapSamplePos = m_globalSamplePos;
-
-        for (int pulseIdx = 0; pulseIdx < schedulePulseCount; ++pulseIdx) {
-            AudioPulseEvent& ev = m_pulseSchedule[pulseIdx];
-            int64_t pulseGlobal = barSampleOffset + int64_t(ev.samplePosInBar);
-
-            // Skip pulse at swap boundary
-            if (pulseGlobal == m_pendingScheduleSwapSamplePos) {
-                continue;
-            }
-
-            if (pulseGlobal < m_globalSamplePos || pulseGlobal >= m_globalSamplePos + int64_t(nBufferFrames))
-                continue;
-            if (ev.playPulse) {
-                PCMBuffer* buf = currentSample(ev.accent);
-                if (buf && buf->valid) {
-                    int outPos = int(pulseGlobal - m_globalSamplePos);
-                    activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                }
-                emitUiPulse(ev);
-            }
-        }
-        // Reset swap position after first buffer
-        m_pendingScheduleSwapSamplePos = -1;
-        m_globalSamplePos += nBufferFrames;
-        return 0;
-    }
-
-    bool scheduleJustChanged = false;
-    if (m_pendingScheduleChange && (bufferStartSample % nBufferFrames == 0)) {
-        activeSamples.clear();
-        m_pulseSchedule = m_nextPulseSchedule;
-        m_pulseIdx = 0;
-        m_scheduleLengthSamples = m_nextScheduleLengthSamples;
-        m_scheduleSampleRate = m_nextScheduleSampleRate;
-        m_barLengthSeconds = m_nextBarLengthSeconds;
-        m_pendingScheduleChange = false;
-        m_scheduleChanged = false;
-        scheduleJustChanged = true;
-    }
-
-    int scheduleSamples = m_scheduleLengthSamples;
-    int schedulePulseCount = static_cast<int>(m_pulseSchedule.size());
-
-    // DETECT MODE: Check if this is polyrhythm or subdivision mode
-    bool isPolyrhythmMode = false;
-    bool hasCountIn = false;
-    int countInEndSample = 0;
-    double customPatternDuration = 0.0;
-    
-    // Check for polyrhythm mode (has gridColumn values)
-    for (const auto& ev : m_pulseSchedule) {
-        if (ev.gridColumn >= 0) {
-            isPolyrhythmMode = true;
-            break;
-        }
-    }
-    
-    // FIXED: Check for count-in events regardless of mode
-    for (const auto& ev : m_pulseSchedule) {
-        if (ev.idx < 0) {
-            hasCountIn = true;
-        } else if (ev.idx == -9999) {
-            countInEndSample = ev.samplePosInBar;
-            break;
-        }
-    }
-    
-    // Calculate custom pattern duration (only used in subdivision mode)
-    if (!isPolyrhythmMode && hasCountIn) {
-        customPatternDuration = m_barLengthSeconds - (countInEndSample / double(m_scheduleSampleRate));
-    }
-
-    // Simple offset calculation
-    int offsetSamples = countInEndSample;
-
-    if (scheduleJustChanged) {
-        for (int pulseIdx = 0; pulseIdx < schedulePulseCount; ++pulseIdx) {
-            AudioPulseEvent& ev = m_pulseSchedule[pulseIdx];
-            int64_t pulseGlobal = int64_t(ev.samplePosInBar);
-
-            if (pulseGlobal < bufferStartSample || pulseGlobal >= bufferEndSample)
-                continue;
-
-            if (m_pendingScheduleSwapSamplePos >= 0 && pulseGlobal == m_pendingScheduleSwapSamplePos) {
-                m_pendingScheduleSwapSamplePos = -1;
-                continue;
-            }
-
-            int outPos = int(pulseGlobal - bufferStartSample);
-            if (ev.idx < 0 || ev.idx == -9999) {
-                if (ev.playPulse) {
-                    PCMBuffer* buf = currentSample(ev.accent);
-                    if (buf && buf->valid)
-                        activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                    emitUiPulse(ev);
-                }
-            } else {
-                if (ev.samplePosInBar >= offsetSamples) {
-                    if (ev.playPulse) {
-                        PCMBuffer* buf = currentSample(ev.accent);
-                        if (buf && buf->valid)
-                            activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                        emitUiPulse(ev);
-                    }
-                }
-            }
-        }
-    } else {
-        // FIXED: Mode-specific cycle generation
-        
-        if (isPolyrhythmMode) {
-            // POLYRHYTHM MODE: Uses time signature bar length, repeats entire schedule
-            int barLengthSamples = int(m_barLengthSeconds * m_scheduleSampleRate);
-            
-            // FIXED: Use a set to track which sample positions we've already scheduled
-            std::set<int64_t> scheduledSamples;
-            
-            for (int pulseIdx = 0; pulseIdx < schedulePulseCount; ++pulseIdx) {
-                AudioPulseEvent& ev = m_pulseSchedule[pulseIdx];
-                int basePosition = ev.samplePosInBar;
-                
-                // FIXED: Handle count-in events in polyrhythm mode
-                if (ev.idx < 0) {
-                    // Count-in events - only play once at the beginning
-                    int64_t pulseGlobal = int64_t(basePosition);
-                    if (pulseGlobal >= bufferStartSample && pulseGlobal < bufferEndSample && ev.playPulse) {
-                        if (scheduledSamples.find(pulseGlobal) == scheduledSamples.end()) {
-                            scheduledSamples.insert(pulseGlobal);
-                            PCMBuffer* buf = currentSample(ev.accent);
-                            if (buf && buf->valid) {
-                                int outPos = int(pulseGlobal - bufferStartSample);
-                                if (outPos >= 0 && outPos < int(nBufferFrames)) {
-                                    activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                                }
-                            }
-                            emitUiPulse(ev);
-                        }
-                    }
-                    continue; // Skip the repeating logic for count-in events
-                }
-                
-                // Skip gap events
-                if (ev.idx == -9999) {
-                    continue;
-                }
-                
-                // Compute starting bar index directly to avoid O(session_length) while-loop.
-                // Use float-computed bar positions to prevent cumulative timing drift.
-                int64_t baseOffset = hasCountIn ? int64_t(countInEndSample) : int64_t(0);
-                int64_t relBufferStart = int64_t(bufferStartSample) - baseOffset - int64_t(basePosition);
-                int64_t barIdx = (relBufferStart > 0) ? (relBufferStart / int64_t(barLengthSamples) - 1) : 0;
-                if (barIdx < 0) barIdx = 0;
-
-                for (int i = 0; i < 5; ++i, ++barIdx) {
-                    // Float-computed bar start to prevent per-bar integer truncation accumulation
-                    int64_t barStartSample = baseOffset + int64_t(std::round(double(barIdx) * m_barLengthSeconds * double(m_scheduleSampleRate)));
-                    int64_t pulseGlobal = barStartSample + int64_t(basePosition);
-
-                    if (pulseGlobal >= bufferEndSample) break;
-
-                    if (pulseGlobal >= bufferStartSample && ev.playPulse) {
-                        // FIXED: Check if we've already scheduled this sample position
-                        if (scheduledSamples.find(pulseGlobal) == scheduledSamples.end()) {
-                            scheduledSamples.insert(pulseGlobal);
-
-                            PCMBuffer* buf = currentSample(ev.accent);
-                            if (buf && buf->valid) {
-                                int outPos = int(pulseGlobal - bufferStartSample);
-                                if (outPos >= 0 && outPos < int(nBufferFrames)) {
-                                    activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                                }
-                            }
-                            emitUiPulse(ev);
-                        }
-                    }
-                }
-            }
-        } else {
-            // SUBDIVISION MODE: Float-computed positions for drift-free timing.
-            // Each cycle's start is derived from bar length in seconds, not cumulative
-            // integer addition — this eliminates inter-bar drift over long sessions.
-            double purePatternDuration_s = hasCountIn ? customPatternDuration : m_barLengthSeconds;
-            // Guard: if count-in duration == bar duration, customPatternDuration is 0.
-            // Fall back to the bar length so cycles repeat at the correct rate.
-            if (purePatternDuration_s <= 0.0) purePatternDuration_s = m_barLengthSeconds;
-            int purePatternSamples = int(std::round(purePatternDuration_s * double(m_scheduleSampleRate)));
-            if (purePatternSamples <= 0) purePatternSamples = scheduleSamples;
-
-            // Tight cycle window: only check cycles that could overlap this buffer
-            int64_t startCycle = int64_t(bufferStartSample) / int64_t(purePatternSamples);
-            if (startCycle > 0) startCycle--;
-            int64_t endCycle = int64_t(bufferEndSample) / int64_t(purePatternSamples) + 2;
-
-            for (int64_t cycle = startCycle; cycle <= endCycle; ++cycle) {
-                int64_t cycleStartSample;
-
-                if (cycle == 0) {
-                    cycleStartSample = 0;
-                } else if (hasCountIn) {
-                    // Float-computed position from cycle start to eliminate cumulative integer drift
-                    cycleStartSample = int64_t(countInEndSample) +
-                        int64_t(std::round(double(cycle) * purePatternDuration_s * double(m_scheduleSampleRate)));
-                } else {
-                    // Float-computed absolute position for drift-free beat placement
-                    cycleStartSample = int64_t(std::round(double(cycle) * m_barLengthSeconds * double(m_scheduleSampleRate)));
-                }
-
-                for (int pulseIdx = 0; pulseIdx < schedulePulseCount; ++pulseIdx) {
-                    AudioPulseEvent& ev = m_pulseSchedule[pulseIdx];
-                    int64_t pulseGlobal;
-
-                    if (cycle == 0) {
-                        pulseGlobal = int64_t(ev.samplePosInBar);
-                    } else {
-                        if (ev.idx < 0 || ev.idx == -9999) continue;
-                        int64_t patternRelPos = hasCountIn ? int64_t(ev.samplePosInBar - countInEndSample)
-                                                           : int64_t(ev.samplePosInBar);
-                        pulseGlobal = cycleStartSample + patternRelPos;
-                    }
-
-                    if (pulseGlobal < bufferStartSample || pulseGlobal >= bufferEndSample)
-                        continue;
-
-                    if (m_pendingScheduleSwapSamplePos >= 0 && pulseGlobal == m_pendingScheduleSwapSamplePos) {
-                        m_pendingScheduleSwapSamplePos = -1;
-                        continue;
-                    }
-
-                    int outPos = int(pulseGlobal - bufferStartSample);
-
-                    if (cycle == 0) {
-                        if (ev.idx < 0) {
-                            if (ev.playPulse) {
-                                PCMBuffer* buf = currentSample(ev.accent);
-                                if (buf && buf->valid)
-                                    activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                                emitUiPulse(ev);
-                            }
-                        } else {
-                            if (ev.samplePosInBar >= offsetSamples && ev.playPulse) {
-                                PCMBuffer* buf = currentSample(ev.accent);
-                                if (buf && buf->valid)
-                                    activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                            }
-                            emitUiPulse(ev);
-                        }
-                    } else {
-                        if (ev.idx >= 0 && ev.idx != -9999 && ev.playPulse) {
-                            PCMBuffer* buf = currentSample(ev.accent);
-                            if (buf && buf->valid)
-                                activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
-                        }
-                        emitUiPulse(ev);
-                    }
-                }
-            }
+    // â”€â”€ Pre-generate bars to maintain a 2-second lookahead â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if (m_playState != EnginePlayState::Idle) {
+        int64_t lookahead = bufferEnd + int64_t(m_sampleRate) * 2;
+        while (m_nextBarStart < lookahead) {
+            int64_t prevNext = m_nextBarStart;
+            advanceNextBar();
+            if (m_nextBarStart == prevNext) break;  // guard against zero-length bar
+            if (m_playState == EnginePlayState::Idle) break;
         }
     }
 
+    // â”€â”€ Fire scheduled pulses in this buffer window â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    for (const ScheduledPulse& sp : m_scheduledPulses) {
+        if (sp.samplePos < bufferStart || sp.samplePos >= bufferEnd) continue;
+        int outPos = int(sp.samplePos - bufferStart);
+        if (sp.ev.playPulse) {
+            PCMBuffer* buf = currentSample(sp.ev.accent);
+            if (buf && buf->valid)
+                activeSamples.push_back({&buf->data, buf->startSample, outPos, m_volume});
+        }
+        emitUiPulse(sp.ev);
+    }
+
+    // â”€â”€ Prune events that have already been delivered â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    m_scheduledPulses.erase(
+        std::remove_if(m_scheduledPulses.begin(), m_scheduledPulses.end(),
+            [bufferEnd](const ScheduledPulse& sp) { return sp.samplePos < bufferEnd; }),
+        m_scheduledPulses.end());
+
+    // â”€â”€ Mix active samples â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for (auto it = activeSamples.begin(); it != activeSamples.end(); ) {
-        int samplesLeft = int(it->data->size()) - it->pos;
-        int bufferSpace = int(nBufferFrames) - it->outPos;
+        int samplesLeft  = int(it->data->size()) - it->pos;
+        int bufferSpace  = int(nBufferFrames) - it->outPos;
         int samplesToMix = std::min(samplesLeft, bufferSpace);
-
         for (int k = 0; k < samplesToMix; ++k)
             output[it->outPos + k] += (*it->data)[it->pos + k] * it->volume;
-
-        it->pos += samplesToMix;
+        it->pos    += samplesToMix;
         it->outPos += samplesToMix;
-
-        if (it->pos >= int(it->data->size())) {
+        if (it->pos >= int(it->data->size()))
             it = activeSamples.erase(it);
-        } else if (it->outPos >= int(nBufferFrames)) {
+        else if (it->outPos >= int(nBufferFrames)) {
             it->outPos = 0;
             ++it;
         } else {
@@ -722,6 +796,7 @@ int AudioEngine::doAudioCallback(float* output, unsigned int nBufferFrames) {
     return 0;
 }
 
+
 void AudioEngine::flushBarAndReset() {
     QMutexLocker lock(&m_schedMutex);
     m_globalSamplePos = 0;
@@ -729,6 +804,26 @@ void AudioEngine::flushBarAndReset() {
     m_scheduleChanged = true;
     m_flushedRecently = true;
     m_pendingScheduleSwapSamplePos = -1;
+}
+
+// Immediately replaces the schedule and resets playback to sample 0.
+// Unlike flushBarAndReset+requestScheduleChange, this avoids the pending-swap
+// path entirely so beat 1 of the new schedule fires without deduplication.
+void AudioEngine::scheduleNow(const std::vector<AudioPulseEvent>& pulses, double barLengthSeconds, int sampleRate) {
+    QMutexLocker lock(&m_schedMutex);
+    m_pulseSchedule             = pulses;
+    m_pulseIdx                  = 0;
+    m_scheduleLengthSamples     = int(barLengthSeconds * sampleRate);
+    m_scheduleSampleRate        = sampleRate;
+    m_barLengthSeconds          = barLengthSeconds;
+    // Start 1 sample past zero: beat-1 (samplePosInBar=0) is now in the "past"
+    // for the first buffer, so it won't re-fire after the old beat-1 click.
+    // Do NOT clear activeSamples â€” old click should decay naturally.
+    m_globalSamplePos           = 1;
+    m_scheduleChanged           = true;
+    m_flushedRecently           = false;   // cancel any pending flushAtNextBarBoundary
+    m_hasPendingSchedule        = false;   // cancel any pending requestScheduleChange
+    m_pendingScheduleSwapSamplePos = -1;   // no deduplication â€” beat 1 fires normally
 }
 
 void AudioEngine::flushAtNextBarBoundary() {
@@ -764,7 +859,7 @@ bool AudioEngine::initializeDevice(double bpm) {
     // ALWAYS reload samples whose stored rate doesn't match the actual device rate.
     // This must be unconditional because detectBestSampleRate() pre-assigns m_sampleRate
     // to the detected rate before we get here, so the old guard
-    // (if m_device.sampleRate != m_sampleRate) was always false — samples loaded at the
+    // (if m_device.sampleRate != m_sampleRate) was always false â€” samples loaded at the
     // constructor default of 44100 would silently stay at 44100 even when the device runs
     // at 48000, causing a pitch shift on first play.
     {

@@ -20,7 +20,10 @@ MetronomeEngine::MetronomeEngine(QObject *parent)
     : QObject(parent)
 {
     m_audioEngine = new AudioEngine(this);
-    connect(m_audioEngine, &AudioEngine::pulseUiEvent, this, &MetronomeEngine::onAudioPulse);
+    connect(m_audioEngine, &AudioEngine::pulseUiEvent,
+            this, &MetronomeEngine::onAudioPulse);
+    connect(m_audioEngine, &AudioEngine::tempoSteppedUp,
+            this, &MetronomeEngine::onAudioTempoSteppedUp);
 
     // Default subdivision
     m_subdivisionPattern = SubdivisionPattern{
@@ -32,34 +35,40 @@ MetronomeEngine::MetronomeEngine(QObject *parent)
 
 void MetronomeEngine::setTempo(int bpm) {
     m_tempoBpm = bpm;
-    if (m_running) updatePulseSchedule();
+    if (m_running) m_audioEngine->setEngineParams(buildEngineParams());
+}
+
+// Kept for backward compat — now just an alias for setTempo when running.
+void MetronomeEngine::setTempoNow(int bpm) {
+    m_tempoBpm = bpm;
+    if (m_running) m_audioEngine->setEngineParams(buildEngineParams());
 }
 
 void MetronomeEngine::setTimeSignature(int num, int denom) {
     m_numerator = num;
     m_denominator = denom;
-    if (m_running) updatePulseSchedule();
+    if (m_running) m_audioEngine->setEngineParams(buildEngineParams());
 }
 
 void MetronomeEngine::setAccentPattern(const std::vector<bool> &accents) {
     m_accentPattern = accents;
-    if (m_running) updatePulseSchedule();
+    if (m_running) m_audioEngine->setEngineParams(buildEngineParams());
 }
 
 void MetronomeEngine::setSubdivisionPattern(const SubdivisionPattern& pattern) {
     m_subdivisionPattern = pattern;
-    if (m_running) updatePulseSchedule();
+    if (m_running) m_audioEngine->setEngineParams(buildEngineParams());
 }
 
 void MetronomeEngine::setPolyrhythmEnabled(bool enable) {
     m_polyrhythmEnabled = enable;
-    if (m_running) updatePulseSchedule();
+    if (m_running) m_audioEngine->setEngineParams(buildEngineParams());
 }
 
 void MetronomeEngine::setPolyrhythm(int main, int poly) {
     m_polyrhythm.primaryBeats = main;
     m_polyrhythm.secondaryBeats = poly;
-    if (m_running) updatePulseSchedule();
+    if (m_running) m_audioEngine->setEngineParams(buildEngineParams());
 }
 
 int MetronomeEngine::beatsPerBar() const {
@@ -86,16 +95,14 @@ void MetronomeEngine::start() {
     m_lastPulseEmittedPatternIdx = -1;
     m_globalPulseCount = 0;
     m_globalBarCount = 0;
+    m_justExitedCountIn = false;
 
-    // 3. Build pulse schedule with correct sample rate
-    updatePulseSchedule();
+    // 3. Start via state machine (count-in handled automatically if m_countInEnabled)
+    m_audioEngine->startWithParams(buildEngineParams(), m_countInEnabled);
 
-    // 4. Flush bar/sample position
-    m_audioEngine->flushBarAndReset();
-
-    // 5. Start audio streaming
-    bool started = m_audioEngine->start(m_tempoBpm);
-    if (!started) return;
+    // Snapshot the run ID that startWithParams just assigned. Any pulseUiEvent
+    // signal carrying a different runId belongs to an old session and must be dropped.
+    m_expectedRunId = m_audioEngine->currentRunId();
 
     m_running = true;
 }
@@ -131,7 +138,7 @@ void MetronomeEngine::resetDeduplication() {
 }
 
 // --- Sample-accurate pulse schedule generation ---
-void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/) {
+void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/, bool skipAudioScheduling) {
     m_pulseSchedule.clear();
     int sampleRate = m_audioEngine->getSampleRate();
 
@@ -346,6 +353,7 @@ void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/) {
     }
 
     // Audio engine scheduling
+    if (skipAudioScheduling) return; // caller (e.g. setTempoNow) handles dispatch itself
     if (m_audioEngine->isRunning()) {
         bool isCountIn = !m_pulseSchedule.empty() && m_pulseSchedule[0].idx < 0;
         if (isCountIn) {
@@ -361,43 +369,67 @@ void MetronomeEngine::updatePulseSchedule(int /*countInBeats*/) {
 
 // --- Audio thread callback for UI pulse ---
 void MetronomeEngine::onAudioPulse(AudioPulseEvent ev) {
-    static bool justExitedCountIn = false;
-    static int countInPulseCount = 0;
-    static int mainPulseIdx = 0;
+    // Discard any queued signals from a previous run. This handles the race where
+    // old pulseUiEvent signals (emitted before stop) arrive on the main thread
+    // after a new session has already started.
+    if (ev.runId != m_expectedRunId) return;
 
-    int maxBars = beatsPerBar();
-
-    int countInPulses = 0;
-    for (const auto& pulse : m_pulseSchedule) {
-        if (pulse.idx < 0) countInPulses++;
-        else break;
+    if (ev.newTempo > 0) {
+        // A speed-trainer step-up just came into effect at this exact pulse.
+        // Update the stored tempo so callers of currentTempo() see the new value.
+        m_tempoBpm = ev.newTempo;
+        emit tempoSteppedUp(ev.newTempo);
     }
-    int mainPulsesPerBar = m_pulseSchedule.size() - countInPulses;
 
     if (ev.idx < 0) {
-        countInPulseCount++;
-        justExitedCountIn = true;
+        // Count-in pulse: mark so we reset counter on first main pulse
+        m_justExitedCountIn = true;
     } else {
-        if (justExitedCountIn) {
+        if (m_justExitedCountIn) {
             m_globalPulseCount = 1;
-            m_globalBarCount = 1;
-            mainPulseIdx = 1;
-            justExitedCountIn = false;
-            countInPulseCount = 0;
+            m_globalBarCount   = 1;
+            m_justExitedCountIn = false;
         } else {
             m_globalPulseCount++;
-            mainPulseIdx++;
-        }
-
-        if (mainPulsesPerBar > 0 && (mainPulseIdx % mainPulsesPerBar) == 0) {
-            if (m_globalBarCount < maxBars) {
-                m_globalBarCount++;
-            }
         }
     }
-
     m_lastPulseEmittedIdx = ev.idx;
     emit pulse(ev);
+}
+
+// Called (via queued connection) when audio thread steps up the tempo.
+void MetronomeEngine::onAudioTempoSteppedUp(int newTempo) {
+    m_tempoBpm         = newTempo;
+    m_globalPulseCount = 0;  // will be 1 on first pulse of new tempo (or after count-in)
+    m_justExitedCountIn = false;
+    emit tempoSteppedUp(newTempo);
+}
+
+// Build an EngineParams snapshot from current MetronomeEngine state.
+EngineParams MetronomeEngine::buildEngineParams() const {
+    EngineParams p;
+    p.bpm              = m_tempoBpm;
+    p.numerator        = m_numerator;
+    p.denominator      = m_denominator;
+    p.polyrhythmEnabled = m_polyrhythmEnabled;
+    p.polyMain         = m_polyrhythm.primaryBeats;
+    p.polySecondary    = m_polyrhythm.secondaryBeats;
+    p.subdivision      = m_subdivisionPattern;
+    p.accents          = m_accentPattern;
+    p.countInEnabled   = m_countInEnabled;
+    p.speedEnabled     = m_speedEnabled;
+    p.barsPerStep      = m_speedBarsPerStep;
+    p.tempoStep        = m_speedTempoStep;
+    p.maxTempo         = m_speedMaxTempo;
+    p.startTempo       = m_tempoBpm;
+    return p;
+}
+
+void MetronomeEngine::setSpeedTrainer(bool enabled, int barsPerStep, int tempoStep, int maxTempo) {
+    m_speedEnabled     = enabled;
+    m_speedBarsPerStep = barsPerStep;
+    m_speedTempoStep   = tempoStep;
+    m_speedMaxTempo    = maxTempo;
 }
 
 bool MetronomeEngine::loadSample(const QString& name, const QString& resourcePath) {
@@ -415,7 +447,7 @@ void MetronomeEngine::setVolume(float vol) {
 void MetronomeEngine::playAccent() {}
 void MetronomeEngine::playClick() {}
 
-void MetronomeEngine::startWithCountIn(int countInBeats) {
+void MetronomeEngine::startWithCountIn(int /*countInBeats*/) {
     if (m_running) return;
 
     bool deviceReady = m_audioEngine->initializeDevice(m_tempoBpm);
@@ -427,13 +459,10 @@ void MetronomeEngine::startWithCountIn(int countInBeats) {
     m_lastPulseEmittedPatternIdx = -1;
     m_globalPulseCount = 0;
     m_globalBarCount = 0;
+    m_justExitedCountIn = false;
 
-    updatePulseSchedule(countInBeats);
-
-    m_audioEngine->flushBarAndReset();
-
-    bool started = m_audioEngine->start(m_tempoBpm);
-    if (!started) return;
+    // Always start with count-in regardless of m_countInEnabled flag
+    m_audioEngine->startWithParams(buildEngineParams(), true);
 
     m_running = true;
 }

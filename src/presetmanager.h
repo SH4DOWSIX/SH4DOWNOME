@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <QMap>
+#include <QVector>
 #include <vector>
 #include "metronomeengine.h"
 #include "subdivisionpattern.h"
@@ -17,6 +18,7 @@ struct MetronomeSection {
     QString label;
     bool hasPolyrhythm = false;
     Polyrhythm polyrhythm;
+    bool polyrhythmPerBeat = true;
 };
 
 struct MetronomePreset {
@@ -37,6 +39,15 @@ public:
     void loadFromDisk(const QString& filename);
     void saveToDisk(const QString& filename) const;
 
+    bool exportToFile(const QStringList& names, const QString& filePath) const;
+    static QStringList presetsInFile(const QString& filePath);
+    static int customPatternsInFile(const QString& filePath);
+    bool importFromFile(const QStringList& names, const QString& filePath);
+
+    QVector<SubdivisionPattern> customPatterns() const { return m_customPatterns; }
+    void setCustomPatterns(const QVector<SubdivisionPattern>& patterns) { m_customPatterns = patterns; }
+
 private:
     QMap<QString, MetronomePreset> presets;
+    QVector<SubdivisionPattern> m_customPatterns;
 };
