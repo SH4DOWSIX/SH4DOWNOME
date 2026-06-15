@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Main.qml</file>
+        <file>TimeSignatureDialog.qml</file>
+        <file>PolyrhythmDialog.qml</file>
+        <file>SettingsDialog.qml</file>
+        <file>BeatWindow.qml</file>
+        <file>SubdivisionPickerSheet.qml</file>
+        <file>TimeSignatureSheet.qml</file>
+        <file>PolyrhythmSheet.qml</file>
+        <file>SettingsSheet.qml</file>
+        <file>PresetPickerSheet.qml</file>
+        <file>CustomSubdivisionSheet.qml</file>
+        <file>BackupSheet.qml</file>
+    </qresource>
+</RCC>
