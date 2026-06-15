@@ -1,0 +1,68 @@
+<?xml version="1.0" ?>
+
+<!DOCTYPE svg  PUBLIC '-//W3C//DTD SVG 1.1//EN'  'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'>
+
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg fill="#ffffff" width="800px" height="800px" viewBox="0 0 32 32" enable-background="new 0 0 32 32" version="1.1" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+
+<g id="play"/>
+
+<g id="stop">
+
+<g>
+
+<path d="M28,27c0,0.55-0.45,1-1,1H5c-0.55,0-1-0.45-1-1V5c0-0.55,0.45-1,1-1h22c0.55,0,1,0.45,1,1V27z"/>
+
+<path d="M27,29H5c-1.103,0-2-0.897-2-2V5c0-1.103,0.897-2,2-2h22c1.103,0,2,0.897,2,2v22C29,28.103,28.103,29,27,29z M27,27v1V27    L27,27L27,27z M5,5v22h21.997L27,5H5z"/>
+
+</g>
+
+</g>
+
+<g id="pause"/>
+
+<g id="replay"/>
+
+<g id="next"/>
+
+<g id="Layer_8"/>
+
+<g id="search"/>
+
+<g id="list"/>
+
+<g id="love"/>
+
+<g id="menu"/>
+
+<g id="add"/>
+
+<g id="headset"/>
+
+<g id="random"/>
+
+<g id="music"/>
+
+<g id="setting"/>
+
+<g id="Layer_17"/>
+
+<g id="Layer_18"/>
+
+<g id="Layer_19"/>
+
+<g id="Layer_20"/>
+
+<g id="Layer_21"/>
+
+<g id="Layer_22"/>
+
+<g id="Layer_23"/>
+
+<g id="Layer_24"/>
+
+<g id="Layer_25"/>
+
+<g id="Layer_26"/>
+
+</svg>

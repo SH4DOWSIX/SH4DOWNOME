@@ -6,6 +6,8 @@
     <file>woodblock_accent.wav</file>
     <file>wooden.wav</file>
     <file>wooden_accent.wav</file>
+    <file>wooden2.wav</file>
+    <file>wooden2_accent.wav</file>
     <file>bongo.wav</file>
     <file>bongo_accent.wav</file>
     <file>cowbell.wav</file>
@@ -38,6 +40,22 @@
     <file>svg/rest_sixteenth.svg</file>
     <file>svg/rest_sixtyfourth.svg</file>
     <file>svg/rest_thirtysecond.svg</file>
+    <file>svg/new_piece.svg</file>
+    <file>svg/section_up.svg</file>
+    <file>svg/section_down.svg</file>
+    <file>svg/add_section.svg</file>
+    <file>svg/addadd_section.svg</file>
+    <file>svg/remove_section.svg</file>
+    <file>svg/polyrhythm.svg</file>
+    <file>svg/count_in.svg</file>
+    <file>svg/tap_tap.svg</file>
+    <file>svg/settings.svg</file>
+    <file>svg/play.svg</file>
+    <file>svg/stop.svg</file>
+    <file>svg/timer.svg</file>
+    <file>svg/speed_trainer.svg</file>
+    <file>svg/tempo.svg</file>
+    <file>svg/volume.svg</file>
 </qresource>
 <qresource prefix="">
     <file>../themes/dark.qss</file>
