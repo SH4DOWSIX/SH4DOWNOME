@@ -16,6 +16,7 @@ It is designed around pieces and sections: each section can store its own tempo,
   <a href="img/6.png"><img src="img/6.png" width="180" alt="Screenshot 6"></a>
   <br>
   <a href="img/7.png"><img src="img/7.png" width="180" alt="Screenshot 7"></a>
+  <a href="img/7.png"><img src="img/8.png" width="180" alt="Screenshot 8"></a>
 </p>
 
 ## Highlights
