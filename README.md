@@ -4,8 +4,19 @@ SH4DOWNOME is a cross-platform metronome for Windows and Android, built for stru
 
 It is designed around pieces and sections: each section can store its own tempo, time signature, subdivision, accents, and polyrhythm settings, making it useful for practice routines, repertoire, lessons, and rhythm studies.
 
-| ![Desktop Main Window](images/16.png) | ![Beat Window](images/15.png) |
-|:---:|:---:|
+## Screenshots
+
+<p align="center">
+  <a href="img/1.png"><img src="img/1.png" width="180" alt="Screenshot 1"></a>
+  <a href="img/2.png"><img src="img/2.png" width="180" alt="Screenshot 2"></a>
+  <a href="img/3.png"><img src="img/3.png" width="180" alt="Screenshot 3"></a>
+  <br>
+  <a href="img/4.png"><img src="img/4.png" width="180" alt="Screenshot 4"></a>
+  <a href="img/5.png"><img src="img/5.png" width="180" alt="Screenshot 5"></a>
+  <a href="img/6.png"><img src="img/6.png" width="180" alt="Screenshot 6"></a>
+  <br>
+  <a href="img/7.png"><img src="img/7.png" width="180" alt="Screenshot 7"></a>
+</p>
 
 ## Highlights
 
