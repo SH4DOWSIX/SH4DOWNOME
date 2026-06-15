@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
     // Expose controller as a context property accessible from all QML files
     engine.rootContext()->setContextProperty("controller", &controller);
     engine.rootContext()->setContextProperty("androidInput", &androidInput);
+    engine.rootContext()->setContextProperty("appVersion", QStringLiteral(APP_VERSION));
 
     // Register the note image provider (engine takes ownership)
     engine.addImageProvider("notes", new NoteImageProvider(&controller));

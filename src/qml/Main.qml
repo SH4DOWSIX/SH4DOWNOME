@@ -5,7 +5,7 @@ import com.sh4downome 1.0
 
 ApplicationWindow {
     id: root
-    title: "SH4DOWNOME v3.0.4"
+    title: "SH4DOWNOME v" + appVersion
     visible: true
     minimumWidth: 360
     width: 360
