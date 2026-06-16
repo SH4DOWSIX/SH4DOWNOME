@@ -262,6 +262,8 @@ figcaption {
   border: 1px solid var(--line);
   border-radius: 30px;
   padding: 44px;
+  margin-top: 32px;
+  margin-bottom: 48px;
 }
 
 .standout div,
