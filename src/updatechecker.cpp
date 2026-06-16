@@ -8,6 +8,8 @@
 #include <QMessageBox>
 #include <QDesktopServices>
 #include <QPointer>
+#include <QPushButton>
+#include <QSettings>
 #include <QUrl>
 #include <QString>
 #include <QStringList>
@@ -48,10 +50,11 @@ void UpdateChecker::check(QWidget* parent, bool silent)
     QObject::connect(reply, &QNetworkReply::finished, [=]() {
         reply->deleteLater();
         nam->deleteLater();
+        QWidget* dialogParent = safeParent ? safeParent.data() : nullptr;
 
         if (reply->error() != QNetworkReply::NoError) {
-            if (!silent && safeParent) {
-                QMessageBox::warning(safeParent, "Update Check",
+            if (!silent) {
+                QMessageBox::warning(dialogParent, "Update Check",
                     "Could not check for updates:\n" + reply->errorString());
             }
             return;
@@ -69,8 +72,12 @@ void UpdateChecker::check(QWidget* parent, bool silent)
         QString currentVersion = QString(APP_VERSION);
 
         if (isNewerVersion(currentVersion, remoteVersion)) {
-            if (!safeParent) return;
-            QMessageBox msgBox(safeParent);
+            QSettings settings;
+            const QString ignoredVersion = settings.value("updates/ignoredVersion").toString();
+            if (silent && ignoredVersion == remoteVersion)
+                return;
+
+            QMessageBox msgBox(dialogParent);
             msgBox.setWindowTitle("Update Available");
             msgBox.setTextFormat(Qt::RichText);
             msgBox.setText(QString(
@@ -78,12 +85,22 @@ void UpdateChecker::check(QWidget* parent, bool silent)
                 "You are running <b>%2</b>.")
                 .arg(remoteVersion, currentVersion));
             msgBox.setInformativeText("Open the download page?");
-            msgBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-            msgBox.setDefaultButton(QMessageBox::Yes);
-            if (msgBox.exec() == QMessageBox::Yes)
+            QPushButton* openButton = msgBox.addButton("Open", QMessageBox::AcceptRole);
+            QPushButton* laterButton = msgBox.addButton("Later", QMessageBox::RejectRole);
+            QPushButton* ignoreButton = msgBox.addButton("Ignore This Version", QMessageBox::DestructiveRole);
+            msgBox.setDefaultButton(openButton);
+
+            msgBox.exec();
+
+            if (msgBox.clickedButton() == openButton) {
                 QDesktopServices::openUrl(QUrl(htmlUrl));
-        } else if (!silent && safeParent) {
-            QMessageBox::information(safeParent, "No Updates",
+            } else if (msgBox.clickedButton() == ignoreButton) {
+                settings.setValue("updates/ignoredVersion", remoteVersion);
+            } else if (msgBox.clickedButton() == laterButton) {
+                return;
+            }
+        } else if (!silent) {
+            QMessageBox::information(dialogParent, "No Updates",
                 QString("You are on the latest version (%1).").arg(currentVersion));
         }
     });

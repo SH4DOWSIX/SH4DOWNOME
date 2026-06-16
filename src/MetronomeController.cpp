@@ -3,6 +3,7 @@
 #include "customsubdivisiondialog.h"
 #include "noteassembler.h"
 #include "CustomPatternEditor.h"
+#include "updatechecker.h"
 #include <QCoreApplication>
 #include <QStandardPaths>
 #include <QDir>
@@ -306,6 +307,10 @@ void MetronomeController::loadSettings()
     m_obsHidden   = s.value("obsHidden", true).toBool();
     m_alwaysOnTop = s.value("alwaysOnTop", false).toBool();
     m_beatWindowAuto = s.value("beatWindowAuto", false).toBool();
+    m_beatWindowSubdivisionStyle = qBound(0, s.value("beatWindowSubdivisionStyle", 0).toInt(), 4);
+    m_beatWindowPolyrhythmStyle = s.value("beatWindowPolyrhythmStyle", 5).toInt();
+    if (m_beatWindowPolyrhythmStyle != 0 && m_beatWindowPolyrhythmStyle != 5)
+        m_beatWindowPolyrhythmStyle = 5;
     m_volume      = s.value("volume", 90).toInt();
     m_terminology = s.value("terminology", "Piece").toString();
     if (m_terminology != "Piece" && m_terminology != "Song" && m_terminology != "Preset")
@@ -326,6 +331,8 @@ void MetronomeController::saveSettings()
     s.setValue("obsHidden",   m_obsHidden);
     s.setValue("alwaysOnTop", m_alwaysOnTop);
     s.setValue("beatWindowAuto", m_beatWindowAuto);
+    s.setValue("beatWindowSubdivisionStyle", m_beatWindowSubdivisionStyle);
+    s.setValue("beatWindowPolyrhythmStyle", m_beatWindowPolyrhythmStyle);
     s.setValue("volume",      m_volume);
     s.setValue("terminology", m_terminology);
     s.sync();
@@ -345,9 +352,12 @@ SubdivisionPattern MetronomeController::getDefaultSubdivisionPattern() const
 QString MetronomeController::soundFileForSet(const QString& set, bool accent) const
 {
     if (set == "Default")   return accent ? ":/resources/accent.wav"          : ":/resources/click.wav";
-    if (set == "Woodblock") return accent ? ":/resources/woodblock_accent.wav" : ":/resources/woodblock.wav";
-    if (set == "Wooden")    return accent ? ":/resources/wooden_accent.wav"    : ":/resources/wooden.wav";
-    if (set == "Woodblock 2") return accent ? ":/resources/wooden2_accent.wav" : ":/resources/wooden2.wav";
+    if (set == "Wooden" || set == "Woodblock")
+        return accent ? ":/resources/woodblock_accent.wav" : ":/resources/woodblock.wav";
+    if (set == "Wooden 2")
+        return accent ? ":/resources/wooden_accent.wav" : ":/resources/wooden.wav";
+    if (set == "Wooden 3" || set == "Woodblock 2")
+        return accent ? ":/resources/wooden2_accent.wav" : ":/resources/wooden2.wav";
     if (set == "Bongo")     return accent ? ":/resources/bongo_accent.wav"     : ":/resources/bongo.wav";
     if (set == "Cowbell")   return accent ? ":/resources/cowbell_accent.wav"   : ":/resources/cowbell.wav";
     if (set == "Digital")   return accent ? ":/resources/digital_accent.wav"   : ":/resources/digital.wav";
@@ -1506,6 +1516,30 @@ void MetronomeController::applySettings(const QString& soundSet, const QColor& a
     emit alwaysOnTopChanged();
     emit beatWindowAutoChanged();
     emit terminologyChanged();
+}
+
+void MetronomeController::setBeatWindowStyleForMode(bool polyrhythm, int style)
+{
+    if (polyrhythm) {
+        if (style != 0 && style != 5)
+            style = 5;
+        if (m_beatWindowPolyrhythmStyle == style)
+            return;
+        m_beatWindowPolyrhythmStyle = style;
+    } else {
+        style = qBound(0, style, 4);
+        if (m_beatWindowSubdivisionStyle == style)
+            return;
+        m_beatWindowSubdivisionStyle = style;
+    }
+
+    saveSettings();
+    emit beatWindowStyleChanged();
+}
+
+void MetronomeController::checkForUpdates()
+{
+    UpdateChecker::check(nullptr, false);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

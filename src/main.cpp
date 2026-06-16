@@ -5,16 +5,20 @@
 #include <QFile>
 #include <QPalette>
 #include <QStyleFactory>
+#include <QTimer>
 #include "MetronomeController.h"
 #include "BeatIndicatorItem.h"
 #include "NoteImageProvider.h"
 #include "SectionListModel.h"
 #include "androidinputdialog.h"
+#include "updatechecker.h"
 
 int main(int argc, char *argv[])
 {
     QApplication::setHighDpiScaleFactorRoundingPolicy(Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     QApplication app(argc, argv);
+    QApplication::setOrganizationName("SH4DOWSIX");
+    QApplication::setApplicationName("SH4DOWNOME");
 
     // Fusion widget style (used by the SubdivisionSelectorDialog which remains a QWidget)
 #ifndef Q_OS_ANDROID
@@ -75,6 +79,10 @@ int main(int argc, char *argv[])
 
     if (engine.rootObjects().isEmpty())
         return -1;
+
+    QTimer::singleShot(1500, []() {
+        UpdateChecker::check(nullptr, true);
+    });
 
     return app.exec();
 }

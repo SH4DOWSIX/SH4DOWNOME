@@ -17,9 +17,24 @@ if(TARGET Qt6::Core AND NOT Qt6Core_STATIC)
     message(WARNING "You are NOT using a static Qt build! The resulting executable will NOT be fully static.")
 endif()
 
-set(APP_VERSION "4.0.0")
+set(APP_VERSION "4.0.1")
 
 find_package(Qt6 COMPONENTS Widgets Multimedia Svg Network Quick QuickControls2 QuickDialogs2 REQUIRED)
+
+if (ANDROID)
+    set(ANDROID_OPENSSL_CMAKE "$ENV{ANDROID_SDK_ROOT}/android_openssl/android_openssl.cmake")
+    if (NOT EXISTS "${ANDROID_OPENSSL_CMAKE}" AND DEFINED ANDROID_SDK_ROOT)
+        set(ANDROID_OPENSSL_CMAKE "${ANDROID_SDK_ROOT}/android_openssl/android_openssl.cmake")
+    endif()
+    if (NOT EXISTS "${ANDROID_OPENSSL_CMAKE}")
+        set(ANDROID_OPENSSL_CMAKE "D:/Android/Sdk/android_openssl/android_openssl.cmake")
+    endif()
+    if (EXISTS "${ANDROID_OPENSSL_CMAKE}")
+        include("${ANDROID_OPENSSL_CMAKE}")
+    else()
+        message(WARNING "Android OpenSSL helper not found; HTTPS update checks may fail on Android.")
+    endif()
+endif()
 
 # --- MiniAudio integration (header-only, no external library needed) ---
 set(MINIAUDIO_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/miniaudio.h")
@@ -64,6 +79,10 @@ qt_add_executable(SH4DOWNOME
     $<$<BOOL:${WIN32}>:${APP_ICON_RESOURCE}>
     ${MINIAUDIO_HEADER}
 )
+
+if (ANDROID AND COMMAND add_android_openssl_libraries)
+    add_android_openssl_libraries(SH4DOWNOME)
+endif()
 
 if (WIN32)
     set_target_properties(SH4DOWNOME PROPERTIES WIN32_EXECUTABLE TRUE)

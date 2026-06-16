@@ -104,6 +104,8 @@ class MetronomeController : public QObject {
     Q_PROPERTY(bool obsEnabled     READ obsEnabled  NOTIFY obsEnabledChanged)
     Q_PROPERTY(bool alwaysOnTop    READ alwaysOnTop NOTIFY alwaysOnTopChanged)
     Q_PROPERTY(bool beatWindowAuto READ beatWindowAuto NOTIFY beatWindowAutoChanged)
+    Q_PROPERTY(int beatWindowSubdivisionStyle READ beatWindowSubdivisionStyle NOTIFY beatWindowStyleChanged)
+    Q_PROPERTY(int beatWindowPolyrhythmStyle READ beatWindowPolyrhythmStyle NOTIFY beatWindowStyleChanged)
     Q_PROPERTY(QString terminology READ terminology NOTIFY terminologyChanged)
 
 public:
@@ -169,6 +171,8 @@ public:
     bool obsEnabled()     const { return !m_obsHidden; }
     bool alwaysOnTop()    const { return m_alwaysOnTop; }
     bool beatWindowAuto() const { return m_beatWindowAuto; }
+    int beatWindowSubdivisionStyle() const { return m_beatWindowSubdivisionStyle; }
+    int beatWindowPolyrhythmStyle() const { return m_beatWindowPolyrhythmStyle; }
     QString terminology() const { return m_terminology; }
 
     // ---- Setters (Q_PROPERTY write) ----
@@ -203,6 +207,8 @@ public:
     Q_INVOKABLE void applySettings(const QString& soundSet, const QColor& accentColor,
                                    bool alwaysOnTop, bool beatWindowAuto,
                                    const QString& terminology);
+    Q_INVOKABLE void checkForUpdates();
+    Q_INVOKABLE void setBeatWindowStyleForMode(bool polyrhythm, int style);
     Q_INVOKABLE QString sectionLabelAt(int index) const;
     Q_INVOKABLE void setSectionLabel(int index, const QString& label);
     Q_INVOKABLE bool presetNameExists(const QString& name) const;
@@ -255,6 +261,7 @@ signals:
     void obsEnabledChanged();
     void alwaysOnTopChanged();
     void beatWindowAutoChanged();
+    void beatWindowStyleChanged();
     void terminologyChanged();
     void customEditorReady();
 
@@ -277,6 +284,8 @@ private:
     bool    m_obsHidden   = true;
     bool    m_alwaysOnTop = false;
     bool    m_beatWindowAuto = false;
+    int     m_beatWindowSubdivisionStyle = 0;
+    int     m_beatWindowPolyrhythmStyle = 5;
     QString m_terminology = "Piece";
 
     // Tempo / time signature
