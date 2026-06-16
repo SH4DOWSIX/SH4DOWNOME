@@ -28,8 +28,8 @@ It is designed around pieces and sections: each section can store its own tempo,
 - Standard, compound, tuplet, dotted, and custom subdivisions.
 - Polyrhythm support with per-beat and per-bar behavior.
 - Speed trainer, countdown timer, count-in, tap tempo, and accent controls.
-- Detachable Beat Window for OBS, recording, streaming, or second-screen use.
-- Multiple click sound sets, including Woodblock 2.
+- Second Beat Window for OBS, or just for a toned down view.
+- Multiple click sound sets.
 
 ## Features
 
@@ -83,7 +83,7 @@ It is designed around pieces and sections: each section can store its own tempo,
 
 ### Beat Window
 
-The Beat Window is a detachable visual display intended for OBS, recording, streaming, or focused practice.
+The Beat Window is a overlay intended for OBS, recording, streaming, or focused practice.
 
 It includes several visual styles:
 
