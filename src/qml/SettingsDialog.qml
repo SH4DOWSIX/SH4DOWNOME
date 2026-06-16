@@ -21,8 +21,16 @@ Dialog {
     property bool   selectedAlwaysOnTop: topCheck.checked
 
     standardButtons: Dialog.Ok | Dialog.Cancel
+    function displaySoundSetName(name) {
+        if (name === "Woodblock")
+            return "Wooden"
+        if (name === "Woodblock 2")
+            return "Wooden 3"
+        return name
+    }
+
     onOpened: {
-        var i = soundSets.indexOf(initialSoundSet)
+        var i = soundSets.indexOf(displaySoundSetName(initialSoundSet))
         soundSetCombo.currentIndex = i >= 0 ? i : 0
         colorRect.currentColor = initialAccentColor
         obsCheck.checked        = initialObsEnabled
@@ -31,7 +39,7 @@ Dialog {
 
     background: Rectangle { color: "#353535"; radius: 4; border.color: "#555" }
 
-    property var soundSets: ["Default", "Woodblock", "Wooden", "Bongo", "Cowbell", "Digital", "Drum", "Hihat", "Metal"]
+    property var soundSets: ["Default", "Bongo", "Cowbell", "Digital", "Drum", "Hihat", "Metal", "Wooden", "Wooden 2", "Wooden 3"]
 
     ColumnLayout {
         width: parent.width

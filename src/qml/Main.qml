@@ -21,7 +21,19 @@ ApplicationWindow {
              | (controller.alwaysOnTop ? Qt.WindowStaysOnTopHint : 0)
 
     // Dark background
-    color: "#353535"
+    color: "#303030"
+
+    readonly property color panelColor: "#242424"
+    readonly property color panelColor2: "#292929"
+    readonly property color cardColor: "#1b1b1b"
+    readonly property color cardBorder: "#3b3b3b"
+    readonly property color buttonColor: "#222222"
+    readonly property color buttonHoverColor: "#2c2c2c"
+    readonly property color buttonPressedColor: "#191919"
+    readonly property color buttonBorder: "#3f3f3f"
+    readonly property color fieldColor: "#1f1f1f"
+    readonly property color fieldBorder: "#171717"
+    readonly property color mutedText: "#a8a8a8"
 
     // Keep native dialog accent colour in sync with app theme
     Binding { target: androidInput; property: "accentColor"; value: controller.accentColor }
@@ -535,7 +547,7 @@ ApplicationWindow {
             Button {
                 Layout.fillWidth: true; Layout.preferredHeight: 40
                 onClicked: pieceSheet.open()
-                background: Rectangle { color: "#1e1e1e"; radius: 3 }
+                background: InsetPanel { radius: 8 }
                 contentItem: Item {
                     Text {
                         anchors { left: parent.left; leftMargin: 6; verticalCenter: parent.verticalCenter; right: pickerIcon.left; rightMargin: 4 }
@@ -558,94 +570,130 @@ ApplicationWindow {
 
             Button {
                 id: newPieceBtn
-                Layout.preferredWidth: 35; Layout.preferredHeight: 40
+                Layout.preferredWidth: 40; Layout.preferredHeight: 40
                 onClicked: root.openPieceInput()
-                background: Rectangle { color: newPieceBtn.pressed ? Qt.rgba(1,1,1,0.18) : (newPieceBtn.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"); radius: 4 }
-                contentItem: Image { source: "qrc:/resources/svg/new_piece.svg"; sourceSize: Qt.size(512,512); width: 35; height: 35; fillMode: Image.PreserveAspectFit; anchors.centerIn: parent; smooth: true; mipmap: true; opacity: newPieceBtn.pressed ? 0.65 : 1.0 }
+                background: InsetPanel {
+                    radius: 20
+                    color: newPieceBtn.pressed ? "#171717" : root.fieldColor
+                    border.color: newPieceBtn.pressed ? "#0f0f0f" : root.fieldBorder
+                }
+                contentItem: Image { source: "qrc:/resources/svg/new_piece.svg"; sourceSize: Qt.size(512,512); width: 30; height: 30; fillMode: Image.PreserveAspectFit; anchors.centerIn: parent; smooth: true; mipmap: true; opacity: newPieceBtn.pressed ? 0.65 : 1.0 }
             }
 
         }
 
         // ── Section management row ─────────────────────────────────────
-        RowLayout {
+        Rectangle {
             Layout.fillWidth: true
-            spacing: 4
-            Button {
-                Layout.fillWidth: true; Layout.preferredHeight: 35
-                enabled: controller.sectionTableEnabled; opacity: enabled ? 1.0 : 0.4
-                onClicked: controller.moveSectionUp()
-                background: Rectangle { color: parent.pressed ? Qt.rgba(1,1,1,0.18) : (parent.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"); radius: 4 }
-                contentItem: Image { source: "qrc:/resources/svg/section_up.svg"; sourceSize: Qt.size(512,512); width: 18; height: 18; fillMode: Image.PreserveAspectFit; anchors.centerIn: parent; smooth: true; mipmap: true }
-            }
-            Button {
-                Layout.fillWidth: true; Layout.preferredHeight: 35
-                enabled: controller.sectionTableEnabled; opacity: enabled ? 1.0 : 0.4
-                onClicked: controller.moveSectionDown()
-                background: Rectangle { color: parent.pressed ? Qt.rgba(1,1,1,0.18) : (parent.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"); radius: 4 }
-                contentItem: Image { source: "qrc:/resources/svg/section_down.svg"; sourceSize: Qt.size(512,512); width: 18; height: 18; fillMode: Image.PreserveAspectFit; anchors.centerIn: parent; smooth: true; mipmap: true }
-            }
-            Button {
-                Layout.fillWidth: true; Layout.preferredHeight: 35
-                enabled: controller.sectionTableEnabled; opacity: enabled ? 1.0 : 0.4
-                onClicked: controller.addSection()
-                background: Rectangle { color: parent.pressed ? Qt.rgba(1,1,1,0.18) : (parent.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"); radius: 4 }
-                contentItem: Image { source: "qrc:/resources/svg/add_section.svg"; sourceSize: Qt.size(512,512); width: 20; height: 20; fillMode: Image.PreserveAspectFit; anchors.centerIn: parent; smooth: true; mipmap: true }
-            }
-            Button {
-                Layout.fillWidth: true; Layout.preferredHeight: 35
-                enabled: controller.sectionTableEnabled; opacity: enabled ? 1.0 : 0.4
-                onClicked: root.openBulkAdd()
-                background: Rectangle { color: parent.pressed ? Qt.rgba(1,1,1,0.18) : (parent.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"); radius: 4 }
-                contentItem: Image { source: "qrc:/resources/svg/addadd_section.svg"; sourceSize: Qt.size(512,512); width: 20; height: 20; fillMode: Image.PreserveAspectFit; anchors.centerIn: parent; smooth: true; mipmap: true }
-            }
-            Button {
-                Layout.fillWidth: true; Layout.preferredHeight: 35
-                enabled: controller.sectionTableEnabled; opacity: enabled ? 1.0 : 0.4
-                onClicked: controller.removeSection()
-                background: Rectangle { color: parent.pressed ? Qt.rgba(1,1,1,0.18) : (parent.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"); radius: 4 }
-                contentItem: Image { source: "qrc:/resources/svg/remove_section.svg"; sourceSize: Qt.size(512,512); width: 20; height: 20; fillMode: Image.PreserveAspectFit; anchors.centerIn: parent; smooth: true; mipmap: true }
-            }
-            Button {
-                id: settingsBtn
-                Layout.fillWidth: true; Layout.preferredHeight: 35
-                onClicked: settingsSheet.open()
-                background: Rectangle { color: settingsBtn.pressed ? Qt.rgba(1,1,1,0.18) : (settingsBtn.hovered ? Qt.rgba(1,1,1,0.08) : "transparent"); radius: 4 }
-                contentItem: Image { source: "qrc:/resources/svg/settings.svg"; sourceSize: Qt.size(512,512); width: 20; height: 20; fillMode: Image.PreserveAspectFit; anchors.centerIn: parent; smooth: true; mipmap: true; opacity: settingsBtn.pressed ? 0.65 : 1.0 }
+            Layout.preferredHeight: 38
+            color: "transparent"
+
+            RowLayout {
+                anchors.fill: parent
+                spacing: 4
+
+                ToolIconButton {
+                    Layout.fillWidth: true
+                    enabled: controller.sectionTableEnabled
+                    iconSource: "qrc:/resources/svg/section_up.svg"
+                    onClicked: controller.moveSectionUp()
+                }
+                ToolIconButton {
+                    Layout.fillWidth: true
+                    enabled: controller.sectionTableEnabled
+                    iconSource: "qrc:/resources/svg/section_down.svg"
+                    onClicked: controller.moveSectionDown()
+                }
+                ToolIconButton {
+                    Layout.fillWidth: true
+                    enabled: controller.sectionTableEnabled
+                    iconSource: "qrc:/resources/svg/add_section.svg"
+                    iconSize: 22
+                    onClicked: controller.addSection()
+                }
+                ToolIconButton {
+                    Layout.fillWidth: true
+                    enabled: controller.sectionTableEnabled
+                    iconSource: "qrc:/resources/svg/addadd_section.svg"
+                    iconSize: 22
+                    onClicked: root.openBulkAdd()
+                }
+                ToolIconButton {
+                    Layout.fillWidth: true
+                    enabled: controller.sectionTableEnabled
+                    iconSource: "qrc:/resources/svg/remove_section.svg"
+                    iconSize: 22
+                    onClicked: controller.removeSection()
+                }
+                ToolIconButton {
+                    Layout.fillWidth: true
+                    iconSource: "qrc:/resources/svg/settings.svg"
+                    iconSize: 22
+                    onClicked: settingsSheet.open()
+                }
             }
         }
 
         // ── Section list ────────────────────────────────────────────────
-        ColumnLayout {
+        Rectangle {
+            id: sectionPanel
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: 0
+            Layout.minimumHeight: 124
+            color: "#1f1f1f"
+            radius: 8
+            border.color: "#171717"
+            border.width: 1
+            clip: true
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: 1
+                radius: sectionPanel.radius - 1
+                color: "transparent"
+                border.color: Qt.rgba(1,1,1,0.035)
+                border.width: 1
+            }
+
+            ColumnLayout {
+                anchors { fill: parent; margins: 3 }
+                spacing: 0
 
                 // Column headers
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 22
-                    color: "#2a2a2a"
+                    Layout.preferredHeight: 21
+                    color: "transparent"
                     RowLayout {
-                        anchors { fill: parent; leftMargin: 26 }  // 26 = row-number col width
+                        anchors { fill: parent; leftMargin: 35; rightMargin: 5 }
                         spacing: 0
-                        DarkHeaderLabel { text: "Label";     Layout.fillWidth: true }
+                        DarkHeaderLabel {
+                            text: "Section"
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignLeft
+                            leftPadding: 4
+                        }
                         DarkHeaderLabel { text: "Time Sig";  Layout.preferredWidth: 58 }
                         DarkHeaderLabel { text: "Sub/Poly";  Layout.preferredWidth: 72 }
-                        DarkHeaderLabel { text: "Tempo";     Layout.preferredWidth: 44 }
+                        DarkHeaderLabel {
+                            text: "Tempo"
+                            Layout.preferredWidth: 44
+                            horizontalAlignment: Text.AlignRight
+                            rightPadding: 3
+                        }
                     }
                 }
 
                 // Section list
-                Rectangle {
+                Item {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     Layout.minimumHeight: 100
-                    color: "#2a2a2a"
                     clip: true
 
                     ListView {
                         id: sectionList
-                        anchors { fill: parent; margins: 1 }
+                        anchors { fill: parent; topMargin: 1; bottomMargin: 3 }
                         model: controller.sectionModel
                         clip: true
                         interactive: true
@@ -659,11 +707,45 @@ ApplicationWindow {
 
                         delegate: Rectangle {
                             id: delegateRoot
+                            readonly property bool selected: index === controller.currentSectionIndex
                             width: ListView.view.width
-                            height: 30
-                            color: (index === controller.currentSectionIndex)
-                                   ? controller.accentColor.darker(1.4)
-                                   : (index % 2 === 0 ? "#2e2e2e" : "#282828")
+                            height: 31
+                            color: "transparent"
+
+                            Rectangle {
+                                anchors {
+                                    fill: parent
+                                    leftMargin: delegateRoot.selected ? 1 : 0
+                                    rightMargin: delegateRoot.selected ? 1 : 0
+                                    topMargin: delegateRoot.selected ? 2 : 0
+                                    bottomMargin: delegateRoot.selected ? 2 : 0
+                                }
+                                radius: delegateRoot.selected ? 5 : 0
+                                color: delegateRoot.selected
+                                       ? controller.accentColor.darker(2.35)
+                                       : (index % 2 === 0 ? "#262626" : "#222222")
+                            }
+
+                            Rectangle {
+                                width: 4
+                                anchors {
+                                    left: parent.left
+                                    leftMargin: delegateRoot.selected ? 1 : 0
+                                    top: parent.top
+                                    topMargin: delegateRoot.selected ? 3 : 0
+                                    bottom: parent.bottom
+                                    bottomMargin: delegateRoot.selected ? 3 : 0
+                                }
+                                radius: 2
+                                color: controller.accentColor
+                                visible: delegateRoot.selected
+                            }
+
+                            Rectangle {
+                                anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+                                height: 1
+                                color: delegateRoot.selected ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.025)
+                            }
 
                             MouseArea {
                                 anchors.fill: parent
@@ -680,30 +762,43 @@ ApplicationWindow {
                             }
 
                             RowLayout {
-                                anchors { fill: parent; leftMargin: 2; rightMargin: 2 }
+                                anchors { fill: parent; leftMargin: 7; rightMargin: 5 }
                                 spacing: 0
 
                                 // Row number
-                                Text {
-                                    text: rowNumber
-                                    color: "#888"; font.pixelSize: 11
-                                    Layout.preferredWidth: 24
-                                    horizontalAlignment: Text.AlignRight
+                                Rectangle {
+                                    Layout.preferredWidth: 18
+                                    Layout.preferredHeight: 18
+                                    Layout.alignment: Qt.AlignVCenter
+                                    radius: 4
+                                    color: delegateRoot.selected ? Qt.rgba(1,1,1,0.18) : Qt.rgba(0,0,0,0.28)
+                                    border.color: delegateRoot.selected ? Qt.rgba(1,1,1,0.30) : Qt.rgba(1,1,1,0.04)
+                                    border.width: 1
+                                    Text {
+                                        anchors.fill: parent
+                                        text: rowNumber
+                                        color: delegateRoot.selected ? "white" : "#9a9a9a"
+                                        font.pixelSize: 9
+                                        font.bold: delegateRoot.selected
+                                        horizontalAlignment: Text.AlignHCenter
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
                                 }
 
                                 // Label (tap+hold to edit)
                                 Text {
                                     id: labelDisplay
                                     Layout.fillWidth: true
-                                    leftPadding: 4
+                                    leftPadding: 6
                                     text: sectionLabel
-                                    color: "white"
+                                    color: delegateRoot.selected ? "white" : "#dddddd"
                                     font.pixelSize: 12
+                                    font.bold: delegateRoot.selected
                                     clip: true
                                     verticalAlignment: Text.AlignVCenter
                                 }
 
-                                Text { text: timeSig;      color: "#cccccc"; font.pixelSize: 11; Layout.preferredWidth: 58; horizontalAlignment: Text.AlignHCenter }
+                                Text { text: timeSig;      color: delegateRoot.selected ? "white" : "#b8b8b8"; font.pixelSize: 11; Layout.preferredWidth: 58; horizontalAlignment: Text.AlignHCenter }
                                 // Sub/Poly cell
                                 Item {
                                     Layout.preferredWidth: 72
@@ -717,21 +812,32 @@ ApplicationWindow {
                                         sourceSize.height: parent.height
                                         fillMode: Image.Pad
                                         smooth: true
+                                        opacity: delegateRoot.selected ? 1.0 : 0.62
                                     }
                                     // Fraction (poly)
                                     Text {
                                         anchors.centerIn: parent
                                         visible: isPoly
                                         text: subPoly
-                                        color: "#cccccc"; font.pixelSize: 11; font.bold: true
+                                        color: delegateRoot.selected ? "white" : "#b8b8b8"; font.pixelSize: 11; font.bold: true
                                         horizontalAlignment: Text.AlignHCenter
                                     }
                                 }
-                                Text { text: sectionTempo; color: "#cccccc"; font.pixelSize: 11; Layout.preferredWidth: 44; horizontalAlignment: Text.AlignHCenter }
+                                Text {
+                                    text: sectionTempo
+                                    color: delegateRoot.selected ? "white" : "#c0c0c0"
+                                    font.pixelSize: 11
+                                    font.bold: delegateRoot.selected
+                                    Layout.preferredWidth: 44
+                                    rightPadding: 3
+                                    horizontalAlignment: Text.AlignRight
+                                }
                             }
                         }
                     }
                 }
+            }
+
         }
 
         // ── Below list: Time Sig | Subdivision | Tempo marking ──
@@ -741,12 +847,11 @@ ApplicationWindow {
             spacing: 6
 
             // Time Signature box
-            Rectangle {
+            InsetPanel {
                 width: 52; height: 56
-                color: "#1e1e1e"; radius: 4
                 enabled: controller.sectionTableEnabled
                 Text {
-                    text: "Time Sig"; color: "#777"; font.pixelSize: 9
+                    text: "Time Sig"; color: root.mutedText; font.pixelSize: 9
                     anchors { top: parent.top; topMargin: 3; horizontalCenter: parent.horizontalCenter }
                 }
                 ColumnLayout {
@@ -758,13 +863,12 @@ ApplicationWindow {
             }
 
             // Subdivision box
-            Rectangle {
+            InsetPanel {
                 Layout.fillWidth: true; height: 56
-                color: "#1e1e1e"; radius: 4
                 enabled: controller.sectionTableEnabled
                 Text {
                     text: controller.polyrhythmEnabled ? "Polyrhythm" : "Subdivision"
-                    color: "#777"; font.pixelSize: 9
+                    color: root.mutedText; font.pixelSize: 9
                     anchors { top: parent.top; topMargin: 3; horizontalCenter: parent.horizontalCenter }
                 }
                 Image {
@@ -792,30 +896,23 @@ ApplicationWindow {
             }
 
             // Poly / Count In / Tap buttons
-            Button {
+            ModeButton {
                 Layout.preferredHeight: 56; implicitWidth: 50
                 enabled: controller.sectionTableEnabled
+                text: "Poly"
+                active: controller.polyrhythmEnabled
                 onClicked: controller.togglePolyrhythm()
-                background: Rectangle {
-                    color: controller.polyrhythmEnabled ? Qt.rgba(controller.accentColor.r, controller.accentColor.g, controller.accentColor.b, 0.35) : "#555"
-                    radius: 3; border.color: "#333"
-                }
-                contentItem: Text { text: "Poly"; color: "white"; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
             }
-            Button {
+            ModeButton {
                 Layout.preferredHeight: 56; implicitWidth: 56
+                text: "Count In"
+                active: controller.countInEnabled
                 onClicked: controller.toggleCountIn()
-                background: Rectangle {
-                    color: controller.countInEnabled ? Qt.rgba(controller.accentColor.r, controller.accentColor.g, controller.accentColor.b, 0.35) : "#555"
-                    radius: 3; border.color: "#333"
-                }
-                contentItem: Text { text: "Count In"; color: "white"; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
             }
-            Button {
+            ModeButton {
                 Layout.preferredHeight: 56; implicitWidth: 50
+                text: "Tap"
                 onClicked: controller.tapTempo()
-                background: Rectangle { color: "#555"; radius: 3; border.color: "#333" }
-                contentItem: Text { text: "Tap"; color: "white"; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
             }
 
         }
@@ -851,9 +948,19 @@ ApplicationWindow {
             Rectangle {
                 id: tempoValueBtn
                 Layout.preferredWidth: 64; Layout.preferredHeight: 32
-                color: "#1e1e1e"; radius: 3
+                color: root.fieldColor; radius: 8
+                border.color: root.fieldBorder
+                border.width: 1
                 enabled: controller.sectionTableEnabled
                 opacity: enabled ? 1.0 : 0.5
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.color: Qt.rgba(1,1,1,0.035)
+                    border.width: 1
+                }
                 Text {
                     anchors.centerIn: parent
                     text: controller.tempo
@@ -902,6 +1009,9 @@ ApplicationWindow {
             polyMain:      controller.biPolyMain
             polySecondary: controller.biPolySecondary
             accentColor:   controller.accentColor
+            backgroundColor: root.color
+            circleBorderColor: "#101010"
+            circleBorderWidth: 2
         }
 
         // ── Volume row ─────────────────────────────────────────
@@ -923,7 +1033,7 @@ ApplicationWindow {
                 handle: Rectangle {
                     x: volSlider.leftPadding + volSlider.visualPosition * (volSlider.availableWidth - width)
                     y: volSlider.topPadding + volSlider.availableHeight / 2 - height / 2
-                    width: 14; height: 14; radius: 7; color: "#888"; border.color: "#555"
+                    width: 14; height: 14; radius: 7; color: volSlider.pressed ? controller.accentColor : "#888"; border.color: "#555"
                 }
                 Connections {
                     target: controller
@@ -933,7 +1043,17 @@ ApplicationWindow {
             Rectangle {
                 id: volValueBtn
                 Layout.preferredWidth: 64; Layout.preferredHeight: 32
-                color: "#1e1e1e"; radius: 3
+                color: root.fieldColor; radius: 8
+                border.color: root.fieldBorder
+                border.width: 1
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.color: Qt.rgba(1,1,1,0.035)
+                    border.width: 1
+                }
                 Text {
                     anchors.centerIn: parent
                     text: controller.volume
@@ -950,22 +1070,29 @@ ApplicationWindow {
         // ── Timer row ────────────────────────────────────────────
         RowLayout {
             Layout.fillWidth: true; spacing: 6
-            Button {
+            ModeButton {
                 id: timerBtn
                 Layout.preferredWidth: 46; Layout.preferredHeight: 36
+                text: "Timer"
+                active: controller.timerEnabled
                 onClicked: controller.toggleTimer()
-                background: Rectangle {
-                    color: controller.timerEnabled ? Qt.rgba(controller.accentColor.r, controller.accentColor.g, controller.accentColor.b, 0.35) : "#555"
-                    radius: 3; border.color: "#333"
-                }
-                contentItem: Text { text: "Timer"; color: "white"; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
             }
             // Timer min display
             Rectangle {
                 id: timerMinBtn
                 Layout.preferredWidth: 52; Layout.preferredHeight: 32
-                color: "#1e1e1e"; radius: 3
+                color: root.fieldColor; radius: 8
+                border.color: root.fieldBorder
+                border.width: 1
                 enabled: !controller.running; opacity: enabled ? 1.0 : 0.5
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.color: Qt.rgba(1,1,1,0.035)
+                    border.width: 1
+                }
                 Text {
                     anchors.centerIn: parent
                     text: String(Math.floor(controller.timerTotalSeconds / 60)).padStart(2, '0')
@@ -982,8 +1109,18 @@ ApplicationWindow {
             Rectangle {
                 id: timerSecBtn
                 Layout.preferredWidth: 52; Layout.preferredHeight: 32
-                color: "#1e1e1e"; radius: 3
+                color: root.fieldColor; radius: 8
+                border.color: root.fieldBorder
+                border.width: 1
                 enabled: !controller.running; opacity: enabled ? 1.0 : 0.5
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.color: Qt.rgba(1,1,1,0.035)
+                    border.width: 1
+                }
                 Text {
                     anchors.centerIn: parent
                     text: String(controller.timerTotalSeconds % 60).padStart(2, '0')
@@ -1007,21 +1144,28 @@ ApplicationWindow {
         // ── Speed row ────────────────────────────────────────────
         RowLayout {
             Layout.fillWidth: true; spacing: 4
-            Button {
+            ModeButton {
                 id: speedBtn
                 Layout.preferredWidth: 46; Layout.preferredHeight: 36
+                text: "Speed"
+                active: controller.speedEnabled
                 onClicked: controller.toggleSpeed()
-                background: Rectangle {
-                    color: controller.speedEnabled ? Qt.rgba(controller.accentColor.r, controller.accentColor.g, controller.accentColor.b, 0.35) : "#555"
-                    radius: 3; border.color: "#333"
-                }
-                contentItem: Text { text: "Speed"; color: "white"; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
             }
-            Text { text: "Bars"; color: "#aaa"; font.pixelSize: 11 }
+            Text { text: "Bars"; color: root.mutedText; font.pixelSize: 11 }
             Rectangle {
                 Layout.preferredWidth: 52; Layout.preferredHeight: 32
-                color: "#1e1e1e"; radius: 3
+                color: root.fieldColor; radius: 8
+                border.color: root.fieldBorder
+                border.width: 1
                 enabled: !controller.running; opacity: enabled ? 1.0 : 0.5
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.color: Qt.rgba(1,1,1,0.035)
+                    border.width: 1
+                }
                 Text { anchors.centerIn: parent; text: controller.speedBarsPerStep; color: "white"; font.pixelSize: 14 }
                 MouseArea {
                     anchors.fill: parent
@@ -1029,11 +1173,21 @@ ApplicationWindow {
                                    function(v) { controller.speedBarsPerStep = v })
                 }
             }
-            Text { text: "BPM+"; color: "#aaa"; font.pixelSize: 11 }
+            Text { text: "BPM+"; color: root.mutedText; font.pixelSize: 11 }
             Rectangle {
                 Layout.preferredWidth: 52; Layout.preferredHeight: 32
-                color: "#1e1e1e"; radius: 3
+                color: root.fieldColor; radius: 8
+                border.color: root.fieldBorder
+                border.width: 1
                 enabled: !controller.running; opacity: enabled ? 1.0 : 0.5
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.color: Qt.rgba(1,1,1,0.035)
+                    border.width: 1
+                }
                 Text { anchors.centerIn: parent; text: controller.speedTempoStep; color: "white"; font.pixelSize: 14 }
                 MouseArea {
                     anchors.fill: parent
@@ -1041,11 +1195,21 @@ ApplicationWindow {
                                    function(v) { controller.speedTempoStep = v })
                 }
             }
-            Text { text: "Max"; color: "#aaa"; font.pixelSize: 11 }
+            Text { text: "Max"; color: root.mutedText; font.pixelSize: 11 }
             Rectangle {
                 Layout.preferredWidth: 52; Layout.preferredHeight: 32
-                color: "#1e1e1e"; radius: 3
+                color: root.fieldColor; radius: 8
+                border.color: root.fieldBorder
+                border.width: 1
                 enabled: !controller.running; opacity: enabled ? 1.0 : 0.5
+                Rectangle {
+                    anchors.fill: parent
+                    anchors.margins: 1
+                    radius: parent.radius - 1
+                    color: "transparent"
+                    border.color: Qt.rgba(1,1,1,0.035)
+                    border.width: 1
+                }
                 Text { anchors.centerIn: parent; text: controller.speedMaxTempo; color: "white"; font.pixelSize: 14 }
                 MouseArea {
                     anchors.fill: parent
@@ -1066,9 +1230,13 @@ ApplicationWindow {
                 id: startStopBtn
                 Layout.fillWidth: true; Layout.preferredHeight: 53
                 onClicked: controller.startStop()
-                background: Rectangle {
-                    color: controller.running ? "#6a0000" : "#006000"
-                    radius: 4; border.color: "#222"
+                background: InsetPanel {
+                    radius: 8
+                    color: controller.running
+                           ? (startStopBtn.pressed ? "#531010" : "#681313")
+                           : (startStopBtn.pressed ? "#00490b" : "#005d0d")
+                    border.color: controller.running ? "#240606" : "#002f07"
+                    innerBorderColor: controller.running ? Qt.rgba(1,0.45,0.45,0.16) : Qt.rgba(0.45,1,0.45,0.14)
                 }
                 contentItem: Item {
                     Text {
@@ -1083,9 +1251,9 @@ ApplicationWindow {
                 id: beatWindowBtn
                 Layout.preferredWidth: 53; Layout.preferredHeight: 53
                 onClicked: root.beatWindowOpen = true
-                background: Rectangle {
-                    color: beatWindowBtn.pressed ? Qt.rgba(1,1,1,0.18) : (beatWindowBtn.hovered ? Qt.rgba(1,1,1,0.08) : "transparent")
-                    radius: 4
+                background: InsetPanel {
+                    radius: 8
+                    color: beatWindowBtn.pressed ? "#171717" : root.fieldColor
                 }
                 contentItem: Image {
                     source: "qrc:/resources/svg/section_up.svg"
@@ -1111,8 +1279,79 @@ ApplicationWindow {
         contentItem: Text { text: parent.text; color: "white"; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
     }
 
+    component ToolIconButton: Button {
+        id: toolButton
+        property string iconSource: ""
+        property int iconSize: 21
+        Layout.fillHeight: true
+        implicitHeight: 32
+        opacity: enabled ? 1.0 : 0.38
+        background: InsetPanel {
+            radius: 7
+            color: toolButton.pressed ? "#171717"
+                 : toolButton.hovered ? "#242424"
+                 : root.fieldColor
+            border.color: toolButton.hovered ? "#101010" : root.fieldBorder
+        }
+        contentItem: Image {
+            source: toolButton.iconSource
+            sourceSize: Qt.size(512,512)
+            width: toolButton.iconSize
+            height: toolButton.iconSize
+            fillMode: Image.PreserveAspectFit
+            anchors.centerIn: parent
+            smooth: true
+            mipmap: true
+            opacity: toolButton.pressed ? 0.72 : 0.92
+        }
+    }
+
+    component ModeButton: Button {
+        id: modeButton
+        property bool active: false
+        opacity: enabled ? 1.0 : 0.45
+        background: InsetPanel {
+            radius: 8
+            color: modeButton.active
+                   ? Qt.rgba(controller.accentColor.r * 0.44, controller.accentColor.g * 0.44, controller.accentColor.b * 0.44, modeButton.pressed ? 0.90 : 0.78)
+                   : (modeButton.pressed ? "#171717"
+                      : modeButton.hovered ? "#242424"
+                      : root.fieldColor)
+            border.color: modeButton.active ? controller.accentColor
+                         : modeButton.hovered ? "#101010"
+                         : root.fieldBorder
+            innerBorderColor: modeButton.active ? Qt.rgba(1,1,1,0.08) : Qt.rgba(1,1,1,0.035)
+        }
+        contentItem: Text {
+            text: modeButton.text
+            color: modeButton.active ? "white" : "#e2e2e2"
+            font.pixelSize: 11
+            font.bold: modeButton.active
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+    }
+
+    component InsetPanel: Rectangle {
+        id: insetPanel
+        property color innerBorderColor: Qt.rgba(1,1,1,0.035)
+        color: root.fieldColor
+        radius: 8
+        border.color: root.fieldBorder
+        border.width: 1
+
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 1
+            radius: Math.max(insetPanel.radius - 1, 0)
+            color: "transparent"
+            border.color: insetPanel.innerBorderColor
+            border.width: 1
+        }
+    }
+
     component DarkHeaderLabel: Text {
-        color: "#aaa"; font.pixelSize: 11; horizontalAlignment: Text.AlignHCenter
+        color: "#969696"; font.pixelSize: 10; horizontalAlignment: Text.AlignHCenter
         height: 22; verticalAlignment: Text.AlignVCenter
     }
 

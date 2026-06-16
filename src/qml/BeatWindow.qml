@@ -15,9 +15,24 @@ Item {
     readonly property var styleNames: ["Classic", "Pulse", "Sweep", "LCD", "Stage", "Polyrhythm"]
     readonly property var availableStyleIndexes: controller.polyrhythmEnabled ? [0, 5] : [0, 1, 2, 3, 4]
 
+    function storedStyleForCurrentMode() {
+        return controller.polyrhythmEnabled
+                ? controller.beatWindowPolyrhythmStyle
+                : controller.beatWindowSubdivisionStyle
+    }
+
+    function applyStoredStyleForCurrentMode() {
+        var stored = storedStyleForCurrentMode()
+        beatStyle = availableStyleIndexes.indexOf(stored) >= 0
+                ? stored
+                : (controller.polyrhythmEnabled ? 5 : 0)
+    }
+
+    Component.onCompleted: applyStoredStyleForCurrentMode()
+    onVisibleChanged: if (visible) applyStoredStyleForCurrentMode()
+
     onAvailableStyleIndexesChanged: {
-        if (availableStyleIndexes.indexOf(beatStyle) < 0)
-            beatStyle = controller.polyrhythmEnabled ? 5 : 0
+        applyStoredStyleForCurrentMode()
     }
 
     function lcm(a, b) {
@@ -172,6 +187,7 @@ Item {
                     text: beatWindow.styleNames[modelData]
                     onClicked: {
                         beatWindow.beatStyle = modelData
+                        controller.setBeatWindowStyleForMode(controller.polyrhythmEnabled, modelData)
                         beatWindow._pickerOpen = false
                     }
                     background: Rectangle {

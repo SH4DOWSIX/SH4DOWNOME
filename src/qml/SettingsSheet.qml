@@ -10,12 +10,12 @@ Drawer {
     background: Rectangle { color: "#252525" }
 
     // Animate height transition between settings and colour picker panels
-    height: showingColorPicker ? 380 : 430
+    height: showingColorPicker ? 380 : 470
     Behavior on height { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
     signal openBackupRequested()
 
-    property var soundSets: ["Default", "Woodblock", "Wooden", "Woodblock 2", "Bongo", "Cowbell", "Digital", "Drum", "Hihat", "Metal"]
+    property var soundSets: ["Default", "Bongo", "Cowbell", "Digital", "Drum", "Hihat", "Metal", "Wooden", "Wooden 2", "Wooden 3"]
 
     property bool showingColorPicker: false
 
@@ -25,6 +25,14 @@ Drawer {
     property bool   pendingAlwaysOnTop:    controller.alwaysOnTop
     property bool   pendingBeatWindowAuto: controller.beatWindowAuto
     property string pendingTerminology: controller.terminology
+
+    function displaySoundSetName(name) {
+        if (name === "Woodblock")
+            return "Wooden"
+        if (name === "Woodblock 2")
+            return "Wooden 3"
+        return name
+    }
 
     // Color picker working values (HSV)
     property real cpHue: 0.0
@@ -73,7 +81,7 @@ Drawer {
 
     onOpened: {
         showingColorPicker = false
-        pendingSoundSet    = controller.soundSet
+        pendingSoundSet    = displaySoundSetName(controller.soundSet)
         pendingAccentColor = controller.accentColor
         pendingAlwaysOnTop = controller.alwaysOnTop
         pendingBeatWindowAuto = controller.beatWindowAuto
@@ -150,8 +158,8 @@ Drawer {
             visible: !root.showingColorPicker
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: 14
-            spacing: 12
+            Layout.margins: 12
+            spacing: 10
 
             RowLayout {
                 Layout.fillWidth: true
@@ -279,8 +287,19 @@ Drawer {
             Item { Layout.fillHeight: true }
 
             Button {
+                text: "Check for Updates"
+                Layout.fillWidth: true; Layout.preferredHeight: 36
+                onClicked: controller.checkForUpdates()
+                background: Rectangle { color: "#333"; radius: 3; border.color: "#555" }
+                contentItem: Text {
+                    text: parent.text; color: "white"; font.pixelSize: 14
+                    horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            Button {
                 text: "Backup & Restore"
-                Layout.fillWidth: true; Layout.preferredHeight: 38
+                Layout.fillWidth: true; Layout.preferredHeight: 36
                 onClicked: root.openBackupRequested()
                 background: Rectangle { color: "#333"; radius: 3; border.color: "#555" }
                 contentItem: Text {
@@ -293,13 +312,13 @@ Drawer {
                 Layout.fillWidth: true; spacing: 8
                 Button {
                     text: "Cancel"; onClicked: root.close()
-                    Layout.fillWidth: true; Layout.preferredHeight: 40
+                    Layout.fillWidth: true; Layout.preferredHeight: 38
                     background: Rectangle { color: "#444"; radius: 3 }
                     contentItem: Text { text: parent.text; color: "white"; font.pixelSize: 15; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
                 }
                 Button {
                     text: "OK"
-                    Layout.fillWidth: true; Layout.preferredHeight: 40
+                    Layout.fillWidth: true; Layout.preferredHeight: 38
                     onClicked: {
                         controller.applySettings(root.pendingSoundSet, root.pendingAccentColor,
                                                   root.pendingAlwaysOnTop, root.pendingBeatWindowAuto,
