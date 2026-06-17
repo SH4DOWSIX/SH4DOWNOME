@@ -61,15 +61,15 @@ It is designed around pieces and sections: each section can store its own tempo,
 - Speed trainer with bars-per-step, BPM increment, and maximum BPM controls.
 - Multiple click sound sets:
   - Default
-  - Woodblock
-  - Wooden
-  - Woodblock 2
   - Bongo
   - Cowbell
   - Digital
   - Drum
   - Hihat
   - Metal
+  - Wooden
+  - Wooden 2
+  - Wooden 3
 
 ### Interface
 
