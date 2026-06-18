@@ -665,8 +665,8 @@ footer a {
   }
 
   .app-preview {
-    min-height: 620px;
-    max-width: 560px;
+    min-height: 610px;
+    max-width: 360px;
     width: 100%;
     margin: 0 auto;
   }
@@ -677,8 +677,7 @@ footer a {
   }
 
   .preview-side {
-    left: 50%;
-    transform: translateX(-50%) scale(0.82);
+    display: none;
   }
 
   .section-panel {
@@ -786,7 +785,7 @@ footer a {
   }
 
   .app-preview {
-    min-height: 590px;
+    min-height: 580px;
     border-radius: 14px;
   }
 
