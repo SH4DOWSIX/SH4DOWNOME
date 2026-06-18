@@ -30,7 +30,14 @@
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">Windows & Android</p>
-        <h1>A metronome for real practice routines.</h1>
+        <h1 class="pulse-headline" aria-label="A metronome for real practice routines.">
+          <span>A</span>
+          <span>metronome</span>
+          <span>for</span>
+          <span>real</span>
+          <span>practice</span>
+          <span>routines.</span>
+        </h1>
         <p class="hero-text">
           Create a piece for the music or exercise you are working on, add sections for each part,
           then save the tempo, time signature, subdivision, accents, or polyrhythm for each section.
@@ -77,31 +84,49 @@
 
       <div class="feature-grid">
         <article>
+          <div class="feature-visual visual-sections" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
           <h3>Routine builder</h3>
           <p>Create a piece, add labelled sections for the parts you are working on, reorder them, rename them, or bulk-create tempo ramps.</p>
         </article>
 
         <article>
+          <div class="feature-visual visual-subdivision" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
           <h3>Subdivision library</h3>
           <p>Pick standard, compound, mixed, and tuplet patterns including triplets, quintuplets, septuplets, dotted values, and rests.</p>
         </article>
 
         <article>
+          <div class="feature-visual visual-custom" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
           <h3>Custom pattern editor</h3>
           <p>Build reusable subdivisions with notes, rests, accents, dotted notes, and custom pulse groupings.</p>
         </article>
 
         <article>
+          <div class="feature-visual visual-poly" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
           <h3>Polyrhythm mode</h3>
           <p>Set ratios like 3:2, 5:4, or 7:4, choose per-beat or per-bar scope, and see the relationship while it plays.</p>
         </article>
 
         <article>
+          <div class="feature-visual visual-speed" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
           <h3>Practice automation</h3>
           <p>Use tap tempo, count-in, countdown timer, and speed trainer with bars-per-step, BPM step, and maximum tempo controls.</p>
         </article>
 
         <article>
+          <div class="feature-visual visual-window" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
           <h3>Visual feedback</h3>
           <p>Follow beat circles, subdivision pulses, polyrhythm grids, timer remaining, and detachable Beat Window styles.</p>
         </article>
@@ -144,52 +169,53 @@
       </div>
 
       <div class="screenshot-viewer">
-        <button class="screenshot-main" type="button" data-src="img/main-screen.png" data-caption="Main metronome screen">
+        <button class="screenshot-main" type="button" data-src="img/main-screen.png" data-caption="Main metronome screen" data-description="Main practice view with section list, tempo, subdivision, timer, speed trainer, and live beat display.">
           <img src="img/main-screen.png" alt="Main metronome screen" />
         </button>
 
         <div class="screenshot-copy">
           <h3 id="screenshot-title">Main metronome screen</h3>
-          <p>Click a thumbnail to preview it here, or click the large screenshot to open it full-size.</p>
+          <p id="screenshot-description">Main practice view with section list, tempo, subdivision, timer, speed trainer, and live beat display.</p>
+          <small>Click the large screenshot to open it full-size.</small>
         </div>
 
         <div class="screenshot-thumbs" aria-label="Screenshot thumbnails">
-          <button class="screenshot-thumb active" type="button" data-src="img/main-screen.png" data-caption="Main metronome screen">
+          <button class="screenshot-thumb active" type="button" data-src="img/main-screen.png" data-caption="Main metronome screen" data-description="Main practice view with section list, tempo, subdivision, timer, speed trainer, and live beat display.">
             <img src="img/main-screen.png" alt="Main metronome screen" />
             <span>Main</span>
           </button>
 
-          <button class="screenshot-thumb" type="button" data-src="img/beat-window.png" data-caption="Beat Window">
+          <button class="screenshot-thumb" type="button" data-src="img/beat-window.png" data-caption="Beat Window" data-description="A separate visual display for focused practice, streaming, recording, or keeping the pulse visible on another screen.">
             <img src="img/beat-window.png" alt="Beat Window" />
             <span>Beat Window</span>
           </button>
 
-          <button class="screenshot-thumb" type="button" data-src="img/piece-selector.png" data-caption="Piece selector">
+          <button class="screenshot-thumb" type="button" data-src="img/piece-selector.png" data-caption="Piece selector" data-description="Switch between saved pieces, songs, exercises, or routines without rebuilding your setup.">
             <img src="img/piece-selector.png" alt="Piece selector" />
             <span>Pieces</span>
           </button>
 
-          <button class="screenshot-thumb" type="button" data-src="img/subdivision-picker.png" data-caption="Subdivision picker">
+          <button class="screenshot-thumb" type="button" data-src="img/subdivision-picker.png" data-caption="Subdivision picker" data-description="Choose standard, compound, mixed, tuplet, and custom subdivision patterns.">
             <img src="img/subdivision-picker.png" alt="Subdivision picker" />
             <span>Subdivisions</span>
           </button>
 
-          <button class="screenshot-thumb" type="button" data-src="img/custom-subdivision.png" data-caption="Custom subdivision editor">
+          <button class="screenshot-thumb" type="button" data-src="img/custom-subdivision.png" data-caption="Custom subdivision editor" data-description="Create reusable subdivision patterns with notes, rests, accents, and dotted values.">
             <img src="img/custom-subdivision.png" alt="Custom subdivision editor" />
             <span>Custom</span>
           </button>
 
-          <button class="screenshot-thumb" type="button" data-src="img/polyrhythm.png" data-caption="Polyrhythm setup">
+          <button class="screenshot-thumb" type="button" data-src="img/polyrhythm.png" data-caption="Polyrhythm setup" data-description="Set a ratio, choose per-beat or per-bar behavior, and save it to the current section.">
             <img src="img/polyrhythm.png" alt="Polyrhythm setup" />
             <span>Polyrhythm</span>
           </button>
 
-          <button class="screenshot-thumb" type="button" data-src="img/beat-window-styles.png" data-caption="Beat Window styles">
+          <button class="screenshot-thumb" type="button" data-src="img/beat-window-styles.png" data-caption="Beat Window styles" data-description="Pick a visual style that suits the current rhythm mode and the way you want to practice.">
             <img src="img/beat-window-styles.png" alt="Beat Window styles" />
             <span>Styles</span>
           </button>
 
-          <button class="screenshot-thumb" type="button" data-src="img/settings.png" data-caption="Settings">
+          <button class="screenshot-thumb" type="button" data-src="img/settings.png" data-caption="Settings" data-description="Change sound sets, accent color, terminology, update checks, backup, restore, and Beat Window behavior.">
             <img src="img/settings.png" alt="Settings" />
             <span>Settings</span>
           </button>
@@ -209,11 +235,29 @@
 
       <div class="download-panel">
         <div class="download-card">
+          <span class="platform-mark platform-windows" aria-hidden="true">
+            <svg viewBox="0 0 32 32">
+              <path d="M3 4.8 14.3 3.2v11.6H3V4.8Z"></path>
+              <path d="M16.1 3 29 1.2v13.6H16.1V3Z"></path>
+              <path d="M3 17.1h11.3v11.7L3 27.2V17.1Z"></path>
+              <path d="M16.1 17.1H29v13.7L16.1 29V17.1Z"></path>
+            </svg>
+          </span>
           <strong>Windows</strong>
           <span>Download, extract, and run SH4DOWNOME.exe.</span>
         </div>
 
         <div class="download-card">
+          <span class="platform-mark platform-android" aria-hidden="true">
+            <svg viewBox="0 0 32 32">
+              <path d="M9.4 12.5h13.2v9.7c0 2-1.6 3.6-3.6 3.6h-6c-2 0-3.6-1.6-3.6-3.6v-9.7Z"></path>
+              <path d="M9.6 11.7c.5-3 3.2-5.3 6.4-5.3s5.9 2.3 6.4 5.3H9.6Z"></path>
+              <path d="M11.1 5.1 8.9 2M20.9 5.1 23.1 2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"></path>
+              <circle cx="12.9" cy="9.4" r="1" fill="#0f1110"></circle>
+              <circle cx="19.1" cy="9.4" r="1" fill="#0f1110"></circle>
+              <path d="M6.4 13.1v7.2M25.6 13.1v7.2" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round"></path>
+            </svg>
+          </span>
           <strong>Android</strong>
           <span>Debug APKs are unsigned. Install warnings are expected.</span>
         </div>
@@ -250,7 +294,9 @@
 
     const featuredScreenshot = document.querySelector(".screenshot-main");
     const featuredScreenshotImage = featuredScreenshot.querySelector("img");
+    const screenshotViewer = document.querySelector(".screenshot-viewer");
     const screenshotTitle = document.querySelector("#screenshot-title");
+    const screenshotDescription = document.querySelector("#screenshot-description");
 
     function openLightbox(src, caption) {
       lightboxImage.src = src;
@@ -264,14 +310,21 @@
       button.addEventListener("click", () => {
         const src = button.dataset.src;
         const caption = button.dataset.caption;
+        const description = button.dataset.description;
+        screenshotViewer.classList.add("switching");
         featuredScreenshot.dataset.src = src;
         featuredScreenshot.dataset.caption = caption;
+        featuredScreenshot.dataset.description = description;
         featuredScreenshotImage.src = src;
         featuredScreenshotImage.alt = caption;
         screenshotTitle.textContent = caption;
+        screenshotDescription.textContent = description;
         document.querySelectorAll(".screenshot-thumb").forEach((thumb) => {
           thumb.classList.toggle("active", thumb === button);
         });
+        window.setTimeout(() => {
+          screenshotViewer.classList.remove("switching");
+        }, 120);
       });
     });
 

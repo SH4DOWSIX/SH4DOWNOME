@@ -21,6 +21,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 56px;
 }
 
 body {
@@ -123,8 +124,37 @@ h1 {
   max-width: 760px;
   font-size: clamp(3.1rem, 6.2vw, 5.4rem);
   line-height: 0.94;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.035em;
   margin-bottom: 24px;
+}
+
+.pulse-headline span {
+  display: inline-block;
+  margin-right: 0.08em;
+  color: #f4f4f5;
+  animation: headlinePulse 4.5s infinite;
+}
+
+.pulse-headline span:last-child {
+  margin-right: 0;
+}
+
+.pulse-headline span:nth-child(1) { animation-delay: 0s; }
+.pulse-headline span:nth-child(2) { animation-delay: 0.75s; }
+.pulse-headline span:nth-child(3) { animation-delay: 1.5s; }
+.pulse-headline span:nth-child(4) { animation-delay: 2.25s; }
+.pulse-headline span:nth-child(5) { animation-delay: 3s; }
+.pulse-headline span:nth-child(6) { animation-delay: 3.75s; }
+
+@keyframes headlinePulse {
+  0%, 19%, 100% {
+    color: #f4f4f5;
+    text-shadow: none;
+  }
+  8% {
+    color: #ff3b3b;
+    text-shadow: 0 0 22px rgba(225, 17, 17, 0.28);
+  }
 }
 
 h2 {
@@ -199,6 +229,11 @@ h3 {
   border-color: var(--line);
 }
 
+.button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
 .hero-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -267,6 +302,7 @@ h3 {
   width: min(1240px, calc(100% - 40px));
   margin: 0 auto;
   padding: 64px 0;
+  scroll-margin-top: 56px;
 }
 
 .section-panel {
@@ -344,6 +380,93 @@ h3 {
   border: 1px solid rgba(225,17,17,0.45);
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.feature-visual {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  align-items: end;
+  gap: 5px;
+  height: 34px;
+  opacity: 0.68;
+}
+
+.feature-visual span {
+  display: block;
+  border-radius: 3px;
+  background: #4e4e52;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.visual-sections span {
+  width: 26px;
+  height: 8px;
+}
+
+.visual-sections span:first-child,
+.visual-subdivision span:nth-child(1),
+.visual-poly span:nth-child(1),
+.visual-speed span:last-child,
+.visual-window span:nth-child(2) {
+  background: var(--red-bright);
+}
+
+.visual-subdivision span {
+  width: 10px;
+  height: 26px;
+}
+
+.visual-subdivision span:nth-child(3) {
+  height: 18px;
+}
+
+.visual-custom span {
+  width: 9px;
+  height: 22px;
+}
+
+.visual-custom span:nth-child(2),
+.visual-custom span:nth-child(5) {
+  height: 9px;
+  background: #2d2d30;
+}
+
+.visual-poly {
+  display: grid;
+  grid-template-columns: repeat(3, 12px);
+  gap: 5px;
+}
+
+.visual-poly span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.visual-poly span:nth-child(4),
+.visual-poly span:nth-child(6) {
+  background: var(--red);
+}
+
+.visual-speed span {
+  width: 13px;
+  height: 10px;
+}
+
+.visual-speed span:nth-child(2) { height: 16px; }
+.visual-speed span:nth-child(3) { height: 23px; }
+.visual-speed span:nth-child(4) { height: 31px; }
+
+.visual-window {
+  align-items: center;
+}
+
+.visual-window span {
+  width: 24px;
+  height: 18px;
+  border-radius: 4px;
 }
 
 .feature-grid p {
@@ -424,12 +547,45 @@ h3 {
 
 .download-card {
   display: grid;
+  grid-template-columns: 46px 1fr;
   gap: 6px;
   padding: 14px;
   border-radius: 12px;
   background: rgba(0,0,0,0.26);
   border: 1px solid var(--line-soft);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
+}
+
+.platform-mark {
+  grid-row: span 2;
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #f3f3f4;
+}
+
+.platform-mark svg {
+  width: 24px;
+  height: 24px;
+  display: block;
+  fill: currentColor;
+}
+
+.platform-windows {
+  color: #f3f7ff;
+  background: linear-gradient(180deg, rgba(0,120,215,0.22), rgba(0,65,120,0.18));
+  border-color: rgba(70,155,235,0.42);
+}
+
+.platform-android {
+  color: #8cefae;
+  background: linear-gradient(180deg, rgba(61,220,132,0.18), rgba(20,92,52,0.17));
+  border-color: rgba(80,220,132,0.38);
 }
 
 .download-card strong {
@@ -489,6 +645,7 @@ h3 {
   width: 100%;
   border-radius: 9px;
   background: #111;
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
 .screenshot-copy {
@@ -506,7 +663,17 @@ h3 {
   max-width: 520px;
   color: var(--muted);
   line-height: 1.65;
-  margin-bottom: 0;
+  margin-bottom: 10px;
+}
+
+.screenshot-copy small {
+  color: var(--soft);
+  font-weight: 800;
+}
+
+.screenshot-viewer.switching .screenshot-main img {
+  opacity: 0.35;
+  transform: scale(0.985);
 }
 
 .screenshot-thumbs {
@@ -816,5 +983,16 @@ footer a {
 
   h1 {
     font-size: clamp(2.6rem, 15vw, 4.4rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
   }
 }
