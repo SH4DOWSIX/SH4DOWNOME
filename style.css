@@ -123,13 +123,13 @@ p {
 h1 {
   max-width: 760px;
   font-size: clamp(3.1rem, 6.2vw, 5.4rem);
-  line-height: 0.94;
-  letter-spacing: -0.035em;
+  line-height: 1.04;
+  letter-spacing: 0;
   margin-bottom: 24px;
 }
 
 .pulse-headline span {
-  display: inline-block;
+  display: inline;
   margin-right: 0.08em;
   color: #f4f4f5;
   animation: headlinePulse 4.5s infinite;
