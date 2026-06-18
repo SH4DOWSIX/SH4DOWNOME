@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>SH4DOWNOME | Advanced Metronome for Windows & Android</title>
-  <meta name="description" content="SH4DOWNOME is an advanced metronome for Windows and Android with pieces, sections, custom subdivisions, polyrhythms, speed training, count-in, tap tempo, and a dedicated Beat Window." />
+  <title>SH4DOWNOME | Metronome for Windows & Android</title>
+  <meta name="description" content="SH4DOWNOME is a practice-focused metronome for Windows and Android with pieces, sections, custom subdivisions, polyrhythms, speed training, count-in, tap tempo, and a dedicated Beat Window." />
 
   <link rel="icon" href="favicon.ico" />
   <link rel="stylesheet" href="style.css" />
@@ -18,7 +18,7 @@
       <span>SH4DOWNOME</span>
     </a>
 
-    <nav>
+    <nav aria-label="Main navigation">
       <a href="#features">Features</a>
       <a href="#screenshots">Screenshots</a>
       <a href="#download">Download</a>
@@ -30,120 +30,170 @@
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">Windows & Android</p>
-        <h1>Not just a metronome. A full practice system.</h1>
+        <h1>A metronome for real practice routines.</h1>
         <p class="hero-text">
-          SH4DOWNOME is built for serious practice: pieces, sections, custom subdivisions,
-          polyrhythms, speed training, count-ins, tap tempo, and a dedicated visual Beat Window.
+          Build pieces from sections, store tempo and rhythm changes, practice custom subdivisions
+          and polyrhythms, then keep time with audio and a separate visual Beat Window.
         </p>
+
+        <div class="hero-status" aria-label="Build availability">
+          <span>Windows builds</span>
+          <span>Android APKs</span>
+          <span>Open source</span>
+        </div>
 
         <div class="hero-actions">
           <a class="button primary" href="https://github.com/SH4DOWSIX/SH4DOWNOME/releases">Download latest release</a>
-          <a class="button secondary" href="https://github.com/SH4DOWSIX/SH4DOWNOME">View on GitHub</a>
+          <a class="button secondary" href="#features">See what it does</a>
+        </div>
+
+        <div class="hero-metrics" aria-label="Practice tools">
+          <div>
+            <strong>Build routines</strong>
+            <span>Save songs, exercises, and section changes</span>
+          </div>
+          <div>
+            <strong>Shape the rhythm</strong>
+            <span>Use subdivisions, accents, and polyrhythms</span>
+          </div>
+          <div>
+            <strong>See the pulse</strong>
+            <span>Use beat circles, grids, and the Beat Window</span>
+          </div>
         </div>
       </div>
 
-      <div class="phone-stack" aria-label="SH4DOWNOME app screenshots">
-        <img class="phone phone-main" src="img/main-screen.png" alt="SH4DOWNOME main metronome screen" />
-        <img class="phone phone-back" src="img/beat-window.png" alt="SH4DOWNOME Beat Window" />
+      <div class="app-preview" aria-label="SH4DOWNOME screenshots">
+        <img class="preview-main" src="img/main-screen.png" alt="SH4DOWNOME main Android interface" />
+        <img class="preview-side" src="img/subdivision-picker.png" alt="SH4DOWNOME subdivision picker" />
       </div>
     </section>
 
-    <section id="features" class="section">
+    <section id="features" class="section feature-section section-panel">
       <div class="section-heading">
-        <p class="eyebrow">Features</p>
-        <h2>Made for structured, flexible practice</h2>
+        <p class="eyebrow">What it does</p>
+        <h2>Tools for structured rhythm practice.</h2>
       </div>
 
       <div class="feature-grid">
         <article>
-          <h3>Piece-based practice</h3>
-          <p>Create and manage pieces made from multiple sections, each with its own tempo, time signature, subdivision, and rhythm setup.</p>
+          <h3>Routine builder</h3>
+          <p>Create pieces, add labelled sections, reorder them, rename them, or bulk-create tempo ramps for longer practice routines.</p>
         </article>
 
         <article>
-          <h3>Custom subdivisions</h3>
-          <p>Build your own subdivision patterns using notes, rests, dotted notes, accents, and custom beat groupings.</p>
+          <h3>Subdivision library</h3>
+          <p>Pick standard, compound, mixed, and tuplet patterns including triplets, quintuplets, septuplets, dotted values, and rests.</p>
         </article>
 
         <article>
-          <h3>Polyrhythms</h3>
-          <p>Practice ratios such as 3:2, 4:3, 5:4, 5:3, and 7:4, with per-beat or per-bar operation.</p>
+          <h3>Custom pattern editor</h3>
+          <p>Build reusable subdivisions with notes, rests, accents, dotted notes, and custom pulse groupings.</p>
         </article>
 
         <article>
-          <h3>Speed trainer</h3>
-          <p>Automatically ramp tempo with configurable bars, BPM increments, maximum BPM, timer, and count-in controls.</p>
+          <h3>Polyrhythm mode</h3>
+          <p>Set ratios like 3:2, 5:4, or 7:4, choose per-beat or per-bar scope, and see the relationship while it plays.</p>
         </article>
 
         <article>
-          <h3>Beat Window</h3>
-          <p>Use a dedicated visual beat display with styles including Classic, Pulse, Sweep, LCD, and Stage.</p>
+          <h3>Practice automation</h3>
+          <p>Use tap tempo, count-in, countdown timer, and speed trainer with bars-per-step, BPM step, and maximum tempo controls.</p>
         </article>
 
         <article>
-          <h3>Cross-platform</h3>
-          <p>Use the same practice workflow across Windows and Android, with a touch-friendly interface and clear visual controls.</p>
+          <h3>Visual feedback</h3>
+          <p>Follow beat circles, subdivision pulses, polyrhythm grids, timer remaining, and detachable Beat Window styles.</p>
         </article>
       </div>
     </section>
 
-    <section id="screenshots" class="section screenshots">
+    <section class="section split-section">
+      <div>
+        <p class="eyebrow">Setup</p>
+        <h2>Keep your practice setup portable.</h2>
+        <p>
+          SH4DOWNOME saves pieces, custom subdivisions, sound choices, visual preferences, and
+          Beat Window settings between sessions.
+        </p>
+      </div>
+
+      <div class="workflow-list">
+        <div>
+          <strong>1</strong>
+          <span>Backup & restore</span>
+          <small>Export selected pieces and custom subdivisions, then import them later.</small>
+        </div>
+        <div>
+          <strong>2</strong>
+          <span>Personal settings</span>
+          <small>Choose sound set, accent colour, terminology, and Beat Window auto-open.</small>
+        </div>
+        <div>
+          <strong>3</strong>
+          <span>Desktop extras</span>
+          <small>Use always-on-top and keyboard shortcuts for faster section control.</small>
+        </div>
+      </div>
+    </section>
+
+    <section id="screenshots" class="section screenshots section-panel">
       <div class="section-heading">
         <p class="eyebrow">Screenshots</p>
-        <h2>Everything you need in one practice app</h2>
+        <h2>The main tools at a glance.</h2>
       </div>
 
-      <div class="screenshot-grid">
-        <figure>
+      <div class="screenshot-viewer">
+        <button class="screenshot-main" type="button" data-src="img/main-screen.png" data-caption="Main metronome screen">
           <img src="img/main-screen.png" alt="Main metronome screen" />
-          <figcaption>Main metronome screen</figcaption>
-        </figure>
+        </button>
 
-        <figure>
-          <img src="img/piece-selector.png" alt="Piece selector" />
-          <figcaption>Piece selector</figcaption>
-        </figure>
+        <div class="screenshot-copy">
+          <h3 id="screenshot-title">Main metronome screen</h3>
+          <p>Click a thumbnail to preview it here, or click the large screenshot to open it full-size.</p>
+        </div>
 
-        <figure>
-          <img src="img/subdivision-picker.png" alt="Subdivision picker" />
-          <figcaption>Subdivision picker</figcaption>
-        </figure>
+        <div class="screenshot-thumbs" aria-label="Screenshot thumbnails">
+          <button class="screenshot-thumb active" type="button" data-src="img/main-screen.png" data-caption="Main metronome screen">
+            <img src="img/main-screen.png" alt="Main metronome screen" />
+            <span>Main</span>
+          </button>
 
-        <figure>
-          <img src="img/custom-subdivision.png" alt="Custom subdivision editor" />
-          <figcaption>Custom subdivision editor</figcaption>
-        </figure>
+          <button class="screenshot-thumb" type="button" data-src="img/beat-window.png" data-caption="Beat Window">
+            <img src="img/beat-window.png" alt="Beat Window" />
+            <span>Beat Window</span>
+          </button>
 
-        <figure>
-          <img src="img/polyrhythm.png" alt="Polyrhythm editor" />
-          <figcaption>Polyrhythm editor</figcaption>
-        </figure>
+          <button class="screenshot-thumb" type="button" data-src="img/piece-selector.png" data-caption="Piece selector">
+            <img src="img/piece-selector.png" alt="Piece selector" />
+            <span>Pieces</span>
+          </button>
 
-        <figure>
-          <img src="img/beat-window.png" alt="Beat Window" />
-          <figcaption>Beat Window</figcaption>
-        </figure>
+          <button class="screenshot-thumb" type="button" data-src="img/subdivision-picker.png" data-caption="Subdivision picker">
+            <img src="img/subdivision-picker.png" alt="Subdivision picker" />
+            <span>Subdivisions</span>
+          </button>
 
-        <figure>
-          <img src="img/beat-window-styles.png" alt="Beat Window style selector" />
-          <figcaption>Beat Window styles</figcaption>
-        </figure>
+          <button class="screenshot-thumb" type="button" data-src="img/custom-subdivision.png" data-caption="Custom subdivision editor">
+            <img src="img/custom-subdivision.png" alt="Custom subdivision editor" />
+            <span>Custom</span>
+          </button>
 
-        <figure>
-          <img src="img/settings.png" alt="Settings panel" />
-          <figcaption>Settings</figcaption>
-        </figure>
-      </div>
-    </section>
+          <button class="screenshot-thumb" type="button" data-src="img/polyrhythm.png" data-caption="Polyrhythm setup">
+            <img src="img/polyrhythm.png" alt="Polyrhythm setup" />
+            <span>Polyrhythm</span>
+          </button>
 
-    <section class="section standout">
-      <div>
-        <p class="eyebrow">Why SH4DOWNOME?</p>
-        <h2>Designed around real songs, not just a BPM number.</h2>
-        <p>
-          Store sections, change tempo between parts, create awkward rhythm patterns,
-          practice polyrhythms, and keep a clean visual beat display open while you play.
-        </p>
+          <button class="screenshot-thumb" type="button" data-src="img/beat-window-styles.png" data-caption="Beat Window styles">
+            <img src="img/beat-window-styles.png" alt="Beat Window styles" />
+            <span>Styles</span>
+          </button>
+
+          <button class="screenshot-thumb" type="button" data-src="img/settings.png" data-caption="Settings">
+            <img src="img/settings.png" alt="Settings" />
+            <span>Settings</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -152,18 +202,94 @@
         <p class="eyebrow">Download</p>
         <h2>Get the latest build from GitHub Releases.</h2>
         <p>
-          Windows and Android builds are distributed through the project releases page.
-          Android APKs may show unknown-source warnings until installed from an official app store.
+          Windows and Android builds are available from the releases page. Pick the package that matches
+          your device, then report anything broken or awkward on GitHub.
         </p>
       </div>
 
-      <a class="button primary" href="https://github.com/SH4DOWSIX/SH4DOWNOME/releases">Open releases</a>
+      <div class="download-panel">
+        <div class="download-card">
+          <strong>Windows</strong>
+          <span>Download, extract, and run SH4DOWNOME.exe.</span>
+        </div>
+
+        <div class="download-card">
+          <strong>Android</strong>
+          <span>Debug APKs are unsigned. Install warnings are expected.</span>
+        </div>
+
+        <div class="download-actions">
+          <a class="button primary" href="https://github.com/SH4DOWSIX/SH4DOWNOME/releases">Open releases</a>
+          <a class="button secondary" href="https://github.com/SH4DOWSIX/SH4DOWNOME/issues">Report a bug</a>
+        </div>
+      </div>
     </section>
   </main>
 
   <footer>
-    <p>SH4DOWNOME by SH4DOWSIX · GPL-3.0</p>
+    <p>SH4DOWNOME by SH4DOWSIX - GPL-3.0</p>
     <a href="https://github.com/SH4DOWSIX/SH4DOWNOME">GitHub Repository</a>
   </footer>
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <button class="lightbox-close" type="button" aria-label="Close screenshot">x</button>
+    <img src="" alt="" />
+    <p></p>
+  </div>
+
+  <script>
+    const lightbox = document.querySelector("#lightbox");
+    const lightboxImage = lightbox.querySelector("img");
+    const lightboxCaption = lightbox.querySelector("p");
+
+    function closeLightbox() {
+      lightbox.setAttribute("aria-hidden", "true");
+      lightboxImage.removeAttribute("src");
+      lightboxImage.alt = "";
+      document.body.classList.remove("lightbox-open");
+    }
+
+    const featuredScreenshot = document.querySelector(".screenshot-main");
+    const featuredScreenshotImage = featuredScreenshot.querySelector("img");
+    const screenshotTitle = document.querySelector("#screenshot-title");
+
+    function openLightbox(src, caption) {
+      lightboxImage.src = src;
+      lightboxImage.alt = caption;
+      lightboxCaption.textContent = caption;
+      lightbox.setAttribute("aria-hidden", "false");
+      document.body.classList.add("lightbox-open");
+    }
+
+    document.querySelectorAll(".screenshot-thumb").forEach((button) => {
+      button.addEventListener("click", () => {
+        const src = button.dataset.src;
+        const caption = button.dataset.caption;
+        featuredScreenshot.dataset.src = src;
+        featuredScreenshot.dataset.caption = caption;
+        featuredScreenshotImage.src = src;
+        featuredScreenshotImage.alt = caption;
+        screenshotTitle.textContent = caption;
+        document.querySelectorAll(".screenshot-thumb").forEach((thumb) => {
+          thumb.classList.toggle("active", thumb === button);
+        });
+      });
+    });
+
+    featuredScreenshot.addEventListener("click", () => {
+      openLightbox(featuredScreenshot.dataset.src, featuredScreenshot.dataset.caption);
+    });
+
+    lightbox.addEventListener("click", (event) => {
+      if (event.target === lightbox || event.target.classList.contains("lightbox-close")) {
+        closeLightbox();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        closeLightbox();
+      }
+    });
+  </script>
 </body>
 </html>
